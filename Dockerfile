@@ -35,7 +35,7 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY requirements.txt pyproject.toml ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Application code + zoo + leaderboard seed.
@@ -43,8 +43,22 @@ COPY orbit_wars_app/ orbit_wars_app/
 COPY agents/ agents/
 COPY runs/ runs/
 
+# Register the package + console_scripts entry points from pyproject.toml
+# (`orbit-wars-tournament` CLI). --no-deps because deps are already installed.
+RUN pip install --no-cache-dir --no-deps -e .
+
 # Prebuilt viewer bundle from stage 1 — backend mounts this on '/'.
 COPY --from=viewer-build /app/viewer/dist viewer/dist
 
+# Non-root user so files written to the mounted ./agents and ./runs on the
+# host match the host's user instead of coming out root-owned. compose.yml
+# overrides UID/GID to the host user's (defaulting to 1000 which matches
+# most Linux installs; macOS users set UID=501 in a .env file).
+RUN useradd --create-home --uid 1000 --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
+
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health').read()" || exit 1
 CMD ["uvicorn", "orbit_wars_app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -10,8 +10,12 @@ services:
     build: .
     image: orbit-wars-lab:latest
     container_name: orbit-wars-lab
+    # Drop to the host user so files written to volumes are owned by you,
+    # not root. Defaults to UID 1000 (typical Linux); macOS users can set
+    # UID=$(id -u) GID=$(id -g) in a .env file next to this compose file.
+    user: "${UID:-1000}:${GID:-1000}"
     ports:
-      - "6001:8000"
+      - "${PORT:-6001}:8000"
     # Volumes mount host folders over the image — changes are live, no rebuild.
     # `agents/` is bidirectional: the image ships 9 agents, which you see in
     # your local ./agents after the first `docker compose up`. Drop new ones
