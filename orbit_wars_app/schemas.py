@@ -37,23 +37,23 @@ class AgentInfo(BaseModel):
     )
     kernel_version: Optional[int] = Field(
         default=None,
-        description="Numer wersji notebooka na Kaggle w momencie pobrania",
+        description="Notebook version number on Kaggle at the time of fetch",
     )
     date_fetched: Optional[str] = None
     license: Optional[str] = None
     author_claimed_lb_score: Optional[float] = Field(
         default=None,
-        description="LB score extracted from notebook title — hint, NIE nasza prawda",
+        description="LB score extracted from notebook title — hint, NOT our ground truth",
     )
 
-    # ===== DEPRECATED fields (zachowane dla backward compat, discovery.py loguje warning) =====
+    # ===== DEPRECATED fields (retained for backward compat, discovery.py logs a warning) =====
     source_url: Optional[str] = Field(
         default=None,
-        description="DEPRECATED — generujemy z kernel_slug. Backward compat only.",
+        description="DEPRECATED — we generate it from kernel_slug. Backward compat only.",
     )
     version: Optional[str] = Field(
         default=None,
-        description="DEPRECATED — zastąpione przez kernel_version (typed int).",
+        description="DEPRECATED — replaced by kernel_version (typed int).",
     )
 
 
@@ -87,7 +87,7 @@ class RunSummary(BaseModel):
     status: RunStatus = "running"
     total_matches: int = 0
     matches_done: int = 0
-    is_quick_match: bool = False  # Propagowane z TournamentConfig, serializowane do run.json
+    is_quick_match: bool = False  # Propagated from TournamentConfig, serialized into run.json
 
 
 class TournamentConfig(BaseModel):
@@ -97,7 +97,7 @@ class TournamentConfig(BaseModel):
     format: Format = "2p"
     parallel: int = 1
     seed_base: int = 42
-    is_quick_match: bool = False  # True gdy uruchomione z Quick Match UI (filtrowane z /api/runs?exclude_quick_match=true)
+    is_quick_match: bool = False  # True when launched from the Quick Match UI (filtered out by /api/runs?exclude_quick_match=true)
     shape: TournamentShape = "round-robin"
     # Required when shape="gauntlet". Must be present in agents. The runner
     # pairs the challenger against each remaining agent × games_per_pair.

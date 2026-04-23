@@ -1,13 +1,13 @@
-"""Utilities dla conversational workflow pobierania/zarządzania external agentami.
+"""Utilities for the conversational workflow of fetching/managing external agents.
 
-Wołany przez Claude w rozmowie (przez `python -c` lub import), nie ma CLI dla user'a.
+Called by Claude in conversation (via `python -c` or import); no user-facing CLI.
 
-Moduły:
-- list_installed() — co mamy lokalnie (skan agents/external/)
-- fetch_notebook(kernel_slug, ...) — pobierz .ipynb z Kaggle, ekstraktuj main.py, stub agent.yaml
-- check_updates() — porównaj lokalne kernel_version z Kaggle
-- read_candidates_md() / append_skipped() / append_backlog() — praca z docs/external-candidates.md
-- safety_audit(source_code) — regex scan podejrzanych import patterns
+Modules:
+- list_installed() — what we have locally (scan agents/external/)
+- fetch_notebook(kernel_slug, ...) — pull .ipynb from Kaggle, extract main.py, stub agent.yaml
+- check_updates() — compare local kernel_version against Kaggle
+- read_candidates_md() / append_skipped() / append_backlog() — work with docs/external-candidates.md
+- safety_audit(source_code) — regex scan for suspicious import patterns
 """
 from __future__ import annotations
 
@@ -43,15 +43,15 @@ SUSPICIOUS_PATTERNS: list[tuple[str, re.Pattern]] = [
 
 
 def safety_audit(source_code: str) -> Optional[str]:
-    """Skanuj `source_code` regex'ami na podejrzane import patterns.
+    """Scan `source_code` with regexes for suspicious import patterns.
 
-    Zwraca:
-    - None jeśli czyste
-    - string opisujący pierwszy pattern który match'nął, np. "suspicious pattern: os.system"
+    Returns:
+    - None if clean
+    - string describing the first pattern that matched, e.g. "suspicious pattern: os.system"
 
-    Nie raise'uje. Fałszywe pozytywy (np. pickle dla wytrenowanej polityki) są OK —
-    fetch_notebook zapisze `disabled: true` + `last_error`, user po ręcznej walidacji
-    może usunąć disabled.
+    Does not raise. False positives (e.g. pickle for a trained policy) are OK —
+    fetch_notebook will write `disabled: true` + `last_error`, and after manual
+    validation the user can remove the disabled flag.
     """
     for name, pattern in SUSPICIOUS_PATTERNS:
         if pattern.search(source_code):
@@ -61,7 +61,7 @@ def safety_audit(source_code: str) -> Optional[str]:
 
 @dataclass(frozen=True)
 class InstalledKernel:
-    """Opis zainstalowanego externalnego agenta (pobranego z notebooka Kaggle)."""
+    """Description of an installed external agent (fetched from a Kaggle notebook)."""
     kernel_slug: str
     kernel_version: Optional[int]
     local_name: str
@@ -69,12 +69,12 @@ class InstalledKernel:
 
 
 def list_installed(zoo_dir: Path) -> list[InstalledKernel]:
-    """Skanuj `zoo_dir/external/*/agent.yaml`, zwróć listę InstalledKernel.
+    """Scan `zoo_dir/external/*/agent.yaml`, return list of InstalledKernel.
 
-    Pomija:
-    - foldery bez `main.py`
-    - foldery bez `agent.yaml`
-    - agenty bez `kernel_slug` w YAML (ręcznie dodane, nie z notebooka)
+    Skips:
+    - folders without `main.py`
+    - folders without `agent.yaml`
+    - agents without `kernel_slug` in YAML (manually added, not from a notebook)
     """
     external = zoo_dir / "external"
     if not external.is_dir():
@@ -115,25 +115,25 @@ def list_installed(zoo_dir: Path) -> list[InstalledKernel]:
 
 @dataclass
 class Candidates:
-    """Snapshot zawartości docs/external-candidates.md."""
-    installed: set[str]   # kernel_slugs w sekcji Installed
-    skipped: set[str]     # w sekcji Skipped
-    backlog: set[str]     # w sekcji Backlog
+    """Snapshot of docs/external-candidates.md contents."""
+    installed: set[str]   # kernel_slugs in the Installed section
+    skipped: set[str]     # in the Skipped section
+    backlog: set[str]     # in the Backlog section
 
 
 _INSTALLED_HEADER = "## Installed"
 _SKIPPED_HEADER = "## Skipped"
 _BACKLOG_HEADER = "## Backlog"
-# Kernel slug pattern: <owner>/<kernel>. Match anywhere in line (naturalnie po `- `),
-# znajduje slug wewnątrz backticków: `owner/slug`.
+# Kernel slug pattern: <owner>/<kernel>. Match anywhere in line (naturally after `- `),
+# finds the slug inside backticks: `owner/slug`.
 _SLUG_RE = re.compile(r"`([a-z0-9][a-z0-9\-_]*/[a-z0-9][a-z0-9\-_]*)`")
 
 
 def read_candidates_md(md_path: Path) -> Candidates:
-    """Parse docs/external-candidates.md na Installed / Skipped / Backlog sets.
+    """Parse docs/external-candidates.md into Installed / Skipped / Backlog sets.
 
-    Gdy plik nie istnieje → empty sets.
-    Robustnie ignoruje malformatted linie.
+    If the file doesn't exist → empty sets.
+    Robustly ignores malformatted lines.
     """
     if not md_path.is_file():
         return Candidates(installed=set(), skipped=set(), backlog=set())
@@ -155,7 +155,7 @@ def read_candidates_md(md_path: Path) -> Candidates:
             section = "backlog"
             continue
         if line.startswith("## "):
-            section = None  # weszliśmy w inną sekcję
+            section = None  # entered a different section
             continue
         if section is None:
             continue
@@ -174,14 +174,14 @@ def read_candidates_md(md_path: Path) -> Candidates:
 
 
 def _append_to_section(md_path: Path, section_header: str, slug: str, reason: str) -> None:
-    r"""Wewnętrzny helper — dopisz `- \`{slug}\` — {date}: "{reason}"` w danej sekcji.
+    r"""Internal helper — append `- \`{slug}\` — {date}: "{reason}"` in the given section.
 
-    Jeśli slug już jest (w dowolnej sekcji pliku) — nic nie robi (idempotencja).
-    Sekcja musi istnieć w pliku.
+    If the slug is already present (in any section of the file) — does nothing (idempotent).
+    The section must exist in the file.
     """
     content = md_path.read_text(encoding="utf-8") if md_path.is_file() else ""
 
-    # Idempotencja: jeśli slug już jest w pliku, nie duplikujemy
+    # Idempotency: if the slug is already in the file, don't duplicate
     if f"`{slug}`" in content:
         return
 
@@ -194,7 +194,7 @@ def _append_to_section(md_path: Path, section_header: str, slug: str, reason: st
     today = date.today().isoformat()
     new_entry = f"- `{slug}` — {today}: \"{reason}\"\n"
 
-    # Znajdź section_header i wstaw po pierwszej pustej linii za nim
+    # Find section_header and insert after the first empty line following it
     lines = content.splitlines(keepends=True)
     out_lines: list[str] = []
     inserted = False
@@ -206,28 +206,28 @@ def _append_to_section(md_path: Path, section_header: str, slug: str, reason: st
             in_section = True
             continue
         if in_section and not inserted:
-            # czekamy na pierwszą pustą linię LUB kolejny `## ` nagłówek
+            # wait for the first empty line OR the next `## ` header
             stripped = line.strip()
             if stripped.startswith("## ") and stripped != section_header:
-                # wstaw przed tym nagłówkiem
+                # insert before this header
                 out_lines.insert(len(out_lines) - 1, new_entry)
                 inserted = True
                 in_section = False
             elif stripped == "" and i + 1 < len(lines):
-                # znajdź następną nie-pustą linię
+                # find the next non-empty line
                 next_non_empty = next(
                     (l for l in lines[i + 1:] if l.strip()),
                     None,
                 )
                 if next_non_empty is None or next_non_empty.strip().startswith("## "):
-                    # sekcja pusta albo zaraz kolejna — wstaw tutaj
+                    # section empty or another header follows — insert here
                     out_lines.append(new_entry)
                     inserted = True
                     in_section = False
 
     if not inserted:
-        # nie znaleziono dobrego miejsca — append na końcu sekcji (fallback)
-        # Zapewnij że last line kończy się newline'm przed dopisaniem
+        # no good spot found — append at end of section (fallback)
+        # Ensure last line ends with a newline before appending
         if out_lines and not out_lines[-1].endswith("\n"):
             out_lines[-1] = out_lines[-1] + "\n"
         out_lines.append(new_entry)
@@ -236,19 +236,19 @@ def _append_to_section(md_path: Path, section_header: str, slug: str, reason: st
 
 
 # -----------------------------------------------------------------------------
-# fetch_notebook — pobieranie .ipynb z Kaggle + stub agent.yaml
+# fetch_notebook — pull .ipynb from Kaggle + stub agent.yaml
 # -----------------------------------------------------------------------------
 
 
 @dataclass
 class FetchResult:
-    """Output fetch_notebook.
+    """Output of fetch_notebook.
 
     Attributes:
-        success: True gdy folder został utworzony/nadpisany.
-        folder_path: dokąd poszedł (lub planned location gdy success=False).
-        error: pusty gdy success=True.
-        safety_alert: None = czysty kod; string = opis match'niętego patternu.
+        success: True when the folder was created/overwritten.
+        folder_path: where it went (or planned location when success=False).
+        error: empty when success=True.
+        safety_alert: None = clean code; string = description of matched pattern.
     """
     success: bool
     folder_path: Path
@@ -257,15 +257,15 @@ class FetchResult:
 
 
 def _kaggle_get_notebook_info(kernel_slug: str) -> dict[str, Any]:
-    """Wywołaj `kaggle kernels status` żeby dostać version_number.
+    """Invoke `kaggle kernels status` to retrieve version_number.
 
-    Zwraca dict {version_number: int, license: str}.
-    Raise RuntimeError jeśli CLI nie działa — w tym: binary missing (FileNotFoundError),
-    permission denied (PermissionError), albo niezero returncode.
+    Returns dict {version_number: int, license: str}.
+    Raises RuntimeError if the CLI fails — including: binary missing (FileNotFoundError),
+    permission denied (PermissionError), or non-zero returncode.
 
-    License — Kaggle CLI `kernels status` nie zwraca go, więc default "Apache 2.0"
-    (najczęstszy na LB). Żeby mieć dokładny, trzeba by `kernels get-metadata`,
-    ale to dodatkowy call — zostawiamy to manualnie zweryfikowanie po fetch.
+    License — Kaggle CLI `kernels status` does not return it, so default to "Apache 2.0"
+    (most common on LB). For an exact value, we'd need `kernels get-metadata`,
+    but that's an extra call — leave it for manual verification after fetch.
     """
     try:
         result = subprocess.run(
@@ -280,7 +280,7 @@ def _kaggle_get_notebook_info(kernel_slug: str) -> dict[str, Any]:
     if result.returncode != 0:
         raise RuntimeError(f"kaggle kernels status failed: {result.stderr or result.stdout}")
 
-    # Parse versionNumber z output. Output bywa różny; szukamy linii z "version"
+    # Parse versionNumber from output. Output format varies; look for a line with "version"
     version_number: int = 1
     for line in result.stdout.splitlines():
         if "VersionNumber" in line or "version" in line.lower():
@@ -299,10 +299,10 @@ def _kaggle_get_notebook_info(kernel_slug: str) -> dict[str, Any]:
 
 
 def _extract_main_py_from_ipynb(ipynb_path: Path) -> str:
-    """Parse notebook .ipynb, zwróć konkatenację wszystkich code cells.
+    """Parse notebook .ipynb, return concatenation of all code cells.
 
-    Strategia: zszyj wszystkie code cells (agent często ma pomocnicze funkcje
-    rozrzucone po kilku cellach). Markdown pomijamy.
+    Strategy: stitch all code cells together (agents often have helper
+    functions spread across several cells). Markdown is skipped.
     """
     with ipynb_path.open("r", encoding="utf-8") as f:
         nb = json.load(f)
@@ -326,13 +326,13 @@ def fetch_notebook(
     *,
     refresh: bool = False,
 ) -> FetchResult:
-    """Pobierz `.ipynb` z Kaggle, ekstraktuj main.py, utwórz folder z stub `agent.yaml`.
+    """Pull `.ipynb` from Kaggle, extract main.py, create folder with stub `agent.yaml`.
 
     Args:
-        kernel_slug: `<owner>/<kernel>`, np. "romantamrazov/orbit-star-wars-lb-max-1224"
-        target_name: nazwa folderu w `agents/external/<target_name>/`
-        zoo_dir: ścieżka do `agents/` (parent `external/`)
-        refresh: True → nadpisuje istniejący folder (preserving name/tags/etc z yaml).
+        kernel_slug: `<owner>/<kernel>`, e.g. "romantamrazov/orbit-star-wars-lb-max-1224"
+        target_name: folder name under `agents/external/<target_name>/`
+        zoo_dir: path to `agents/` (parent of `external/`)
+        refresh: True → overwrite existing folder (preserving name/tags/etc from yaml).
 
     Returns:
         FetchResult(success=True, folder_path=..., safety_alert=Optional[str])
@@ -340,7 +340,7 @@ def fetch_notebook(
     """
     target_dir = zoo_dir / "external" / target_name
 
-    # Existence check: gdy main.py już jest i refresh=False → error
+    # Existence check: when main.py already exists and refresh=False → error
     if target_dir.is_dir() and (target_dir / "main.py").is_file():
         if not refresh:
             return FetchResult(
@@ -359,7 +359,7 @@ def fetch_notebook(
             error=f"kaggle CLI info error: {e}",
         )
 
-    # Step 2: pull notebook via kaggle CLI do tymczasowego katalogu
+    # Step 2: pull notebook via kaggle CLI into a temp directory
     with tempfile.TemporaryDirectory(prefix="kaggle-pull-") as tmp:
         tmpdir = Path(tmp)
         result = subprocess.run(
@@ -374,10 +374,10 @@ def fetch_notebook(
                 error=f"kaggle CLI pull error: {result.stderr or result.stdout}",
             )
 
-        # Znajdź .ipynb w tmpdir (kaggle CLI zapisuje <slug>.ipynb + metadata.json)
+        # Find .ipynb in tmpdir (kaggle CLI writes <slug>.ipynb + metadata.json)
         ipynb_files = list(tmpdir.glob("*.ipynb"))
         if not ipynb_files:
-            # Fallback: kernel może być .py script zamiast notebook
+            # Fallback: kernel may be a .py script instead of a notebook
             py_files = list(tmpdir.glob("*.py"))
             if not py_files:
                 return FetchResult(
@@ -389,14 +389,14 @@ def fetch_notebook(
         else:
             main_py_code = _extract_main_py_from_ipynb(ipynb_files[0])
 
-    # Step 3: safety audit (regex scan na podejrzane importy)
+    # Step 3: safety audit (regex scan for suspicious imports)
     alert = safety_audit(main_py_code)
 
-    # Step 4: utwórz folder + zapisz main.py
+    # Step 4: create folder + write main.py
     target_dir.mkdir(parents=True, exist_ok=True)
     (target_dir / "main.py").write_text(main_py_code, encoding="utf-8")
 
-    # Step 5: stub agent.yaml (preserving istniejące fields gdy refresh)
+    # Step 5: stub agent.yaml (preserving existing fields on refresh)
     existing_yaml: dict = {}
     yaml_path = target_dir / "agent.yaml"
     if refresh and yaml_path.is_file():
@@ -434,20 +434,20 @@ def fetch_notebook(
 
 
 def append_skipped(md_path: Path, kernel_slug: str, reason: str) -> None:
-    """Dopisz wpis w sekcji Skipped. Idempotentne."""
+    """Append an entry in the Skipped section. Idempotent."""
     _append_to_section(md_path, _SKIPPED_HEADER, kernel_slug, reason)
 
 
 def append_backlog(md_path: Path, kernel_slug: str, reason: str) -> None:
-    """Dopisz wpis w sekcji Backlog. Idempotentne."""
+    """Append an entry in the Backlog section. Idempotent."""
     _append_to_section(md_path, _BACKLOG_HEADER, kernel_slug, reason)
 
 
 def append_installed(md_path: Path, kernel_slug: str, local_name: str,
                      kernel_version: int, lb_score: Optional[float] = None) -> None:
-    """Dopisz wpis w sekcji Installed. Idempotentne. Format matching seed.
+    """Append an entry in the Installed section. Idempotent. Format matching seed.
 
-    Usage: wołane przez fetch_notebook() na sukcess.
+    Usage: called by fetch_notebook() on success.
     """
     today = date.today().isoformat()
     lb_part = f", LB claim {lb_score}" if lb_score is not None else ""
@@ -455,7 +455,7 @@ def append_installed(md_path: Path, kernel_slug: str, local_name: str,
 
     content = md_path.read_text(encoding="utf-8") if md_path.is_file() else ""
     if f"`{kernel_slug}`" in content:
-        return  # już jest
+        return  # already present
 
     if _INSTALLED_HEADER not in content:
         raise ValueError(
@@ -465,7 +465,7 @@ def append_installed(md_path: Path, kernel_slug: str, local_name: str,
 
     new_entry = f"- `{kernel_slug}` {entry_body}\n"
 
-    # Użyj tej samej logiki co _append_to_section, ale z innym formatem:
+    # Use the same logic as _append_to_section, but with a different format:
     lines = content.splitlines(keepends=True)
     out_lines: list[str] = []
     inserted = False
@@ -493,8 +493,8 @@ def append_installed(md_path: Path, kernel_slug: str, local_name: str,
                     in_section = False
 
     if not inserted:
-        # nie znaleziono dobrego miejsca — append na końcu sekcji (fallback)
-        # Zapewnij że last line kończy się newline'm przed dopisaniem
+        # no good spot found — append at end of section (fallback)
+        # Ensure last line ends with a newline before appending
         if out_lines and not out_lines[-1].endswith("\n"):
             out_lines[-1] = out_lines[-1] + "\n"
         out_lines.append(new_entry)
@@ -503,13 +503,13 @@ def append_installed(md_path: Path, kernel_slug: str, local_name: str,
 
 
 # -----------------------------------------------------------------------------
-# check_updates — porównaj lokalne kernel_version z Kaggle
+# check_updates — compare local kernel_version against Kaggle
 # -----------------------------------------------------------------------------
 
 
 @dataclass
 class UpdateAvailable:
-    """Notebook ma nowszą wersję na Kaggle niż lokalna."""
+    """Notebook has a newer version on Kaggle than locally."""
     kernel_slug: str
     local_version: int
     remote_version: int
@@ -518,10 +518,10 @@ class UpdateAvailable:
 
 
 def check_updates(zoo_dir: Path) -> list[UpdateAvailable]:
-    """Dla każdego installed external: porównaj kernel_version z Kaggle.
+    """For each installed external: compare kernel_version against Kaggle.
 
-    Agenty bez kernel_version lokalnie (lub z niedeterministycznym API) pomijamy.
-    Zwraca tylko te gdzie remote > local.
+    Agents without local kernel_version (or with non-deterministic API) are skipped.
+    Returns only those where remote > local.
     """
     result: list[UpdateAvailable] = []
     for installed in list_installed(zoo_dir):

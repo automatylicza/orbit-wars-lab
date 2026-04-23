@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbit-wars-lab"
+version = "0.1.0"
+description = "Local tournament runner + visualizer for the Orbit Wars Kaggle competition"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "automatylicza" }]
+keywords = ["kaggle", "orbit-wars", "reinforcement-learning", "tournament", "visualizer"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment :: Simulation",
+]
+
+dependencies = [
+    "numpy>=1.26.0",
+    "kaggle-environments @ git+https://github.com/Kaggle/kaggle-environments.git@master",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.28",
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "trueskill>=0.4.5",
+    "pyyaml>=6.0",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+rl = [
+    # CPU-only torch wheel for the kashiwaba-rl PPO agent.
+    # pip users: add `--extra-index-url https://download.pytorch.org/whl/cpu`.
+    "torch>=2.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[project.scripts]
+orbit-wars-tournament = "orbit_wars_app.tournament:main"
+
+[project.urls]
+Homepage = "https://github.com/automatylicza/orbit-wars-lab"
+Competition = "https://www.kaggle.com/competitions/orbit-wars"
+Issues = "https://github.com/automatylicza/orbit-wars-lab/issues"
+
+[tool.setuptools.packages.find]
+include = ["orbit_wars_app*"]
+exclude = ["tests*", "docs*", "refs*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]  # handled by formatter
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F401", "F811"]  # unused imports, redefinitions — normal in test fixtures

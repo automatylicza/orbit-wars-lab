@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-04-23T10:15:40.335864+00:00",
+  "last_updated": "2026-04-23T12:06:32.459920+00:00",
   "ratings": {
     "baselines/nearest-sniper": {
       "2p": {
@@ -9,9 +9,9 @@
         "games_played": 84
       },
       "4p": {
-        "mu": 566.6419197198076,
-        "sigma": 98.63185649779005,
-        "games_played": 2
+        "mu": 574.0936404051879,
+        "sigma": 46.38587675326578,
+        "games_played": 8
       }
     },
     "baselines/random": {
@@ -21,9 +21,9 @@
         "games_played": 84
       },
       "4p": {
-        "mu": 566.7230834938396,
-        "sigma": 98.62130834732712,
-        "games_played": 2
+        "mu": 574.210842557946,
+        "sigma": 46.377144427656745,
+        "games_played": 8
       }
     },
     "baselines/starter": {
@@ -33,9 +33,9 @@
         "games_played": 82
       },
       "4p": {
-        "mu": 616.9879326793704,
-        "sigma": 107.21926476399237,
-        "games_played": 2
+        "mu": 611.9696431945313,
+        "sigma": 49.47023547938208,
+        "games_played": 8
       }
     },
     "external/kashiwaba-rl": {
@@ -57,9 +57,9 @@
         "games_played": 82
       },
       "4p": {
-        "mu": 736.6440354927349,
-        "sigma": 150.3768486878406,
-        "games_played": 1
+        "mu": 677.695311974059,
+        "sigma": 60.33764236745729,
+        "games_played": 7
       }
     },
     "external/sigmaborov-reinforce": {

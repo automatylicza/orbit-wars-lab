@@ -13,6 +13,11 @@ import { installHeaderNav } from "../components/header-nav";
 import { mountAgentPicker, PickerSelection } from "../components/agent-picker";
 import { mountMatchConfigBar, MatchConfig } from "../components/match-config-bar";
 import { mountEmbeddedReplay, EmbeddedReplayHandle } from "../components/embedded-replay";
+import {
+  fleetCard,
+  planetCard,
+  resetPanel,
+} from "../components/sidebar-cards";
 import { api } from "../api";
 
 interface MatchStateIdle {
@@ -234,17 +239,6 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
   const viewPlanetEl = document.getElementById("qm-view-planet")!;
   const viewFleetEl = document.getElementById("qm-view-fleet")!;
 
-  function resetPanel(el: HTMLElement, placeholder: string) {
-    el.classList.add("qm-view-empty");
-    el.textContent = placeholder;
-  }
-
-  function ownerLabel(owner: number): string {
-    if (owner < 0) return "neutral";
-    const color = PLAYER_COLORS[owner] ?? "#666";
-    return `<span class="color-dot" style="background-color:${color}"></span>P${owner + 1}`;
-  }
-
   function removeFromSelection(kind: "planet" | "fleet", id: number) {
     try {
       const raw = localStorage.getItem("ow-selection");
@@ -263,67 +257,6 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
     } catch { /* stale */ }
   }
 
-  function planetCard(d: any, removable: boolean): string {
-    const inboundHtml = d.inbound.length === 0
-      ? `<div class="qm-sel-muted">No fleets incoming.</div>`
-      : `<ul class="qm-inbound">${
-          d.inbound.map((f: any) =>
-            `<li>
-              <span class="color-dot" style="background-color:${PLAYER_COLORS[f.owner] ?? "#666"}"></span>
-              <span class="qm-inbound-ships">${Math.floor(f.ships)}</span>
-              <span class="qm-inbound-eta">ETA ${f.eta}t</span>
-              <span class="qm-inbound-from">from #${f.fromPlanetId}</span>
-            </li>`,
-          ).join("")
-        }</ul>`;
-    const removeBtn = removable
-      ? `<button class="qm-sel-remove" data-kind="planet" data-id="${d.id}" title="Remove from selection">×</button>`
-      : "";
-    return `
-      <div class="qm-sel-card">
-        ${removeBtn}
-        <dl class="qm-sel-stats">
-          <dt>id</dt><dd>#${d.id}${d.isComet ? " (comet)" : ""}</dd>
-          <dt>owner</dt><dd>${ownerLabel(d.owner)}</dd>
-          <dt>ships</dt><dd>${Math.floor(d.ships)}</dd>
-          <dt>prod</dt><dd>+${d.production}/t</dd>
-          <dt>pos</dt><dd>${d.x.toFixed(1)}, ${d.y.toFixed(1)}</dd>
-          <dt>radius</dt><dd>${d.radius.toFixed(1)}</dd>
-        </dl>
-        <div class="qm-sel-section-label">Inbound fleets (${d.inbound.length})</div>
-        ${inboundHtml}
-      </div>
-    `;
-  }
-
-  function fleetCard(d: any, removable: boolean): string {
-    const target = d.target;
-    const targetHtml = target
-      ? `<dl class="qm-sel-stats">
-          <dt>dest</dt><dd>#${target.planetId} (${ownerLabel(target.planetOwner)})</dd>
-          <dt>eta</dt><dd><span class="qm-inbound-eta">${target.eta}t</span></dd>
-          <dt>dist</dt><dd>${target.distance.toFixed(1)}u</dd>
-        </dl>`
-      : `<div class="qm-sel-muted">No planet on trajectory.</div>`;
-    const removeBtn = removable
-      ? `<button class="qm-sel-remove" data-kind="fleet" data-id="${d.id}" title="Remove from selection">×</button>`
-      : "";
-    return `
-      <div class="qm-sel-card">
-        ${removeBtn}
-        <dl class="qm-sel-stats">
-          <dt>id</dt><dd>#${d.id}</dd>
-          <dt>owner</dt><dd>${ownerLabel(d.owner)}</dd>
-          <dt>ships</dt><dd>${Math.floor(d.ships)}</dd>
-          <dt>speed</dt><dd>${d.speed.toFixed(2)} u/t</dd>
-          <dt>pos</dt><dd>${d.x.toFixed(1)}, ${d.y.toFixed(1)}</dd>
-          <dt>from</dt><dd>#${d.fromPlanetId}</dd>
-        </dl>
-        <div class="qm-sel-section-label">Target</div>
-        ${targetHtml}
-      </div>
-    `;
-  }
 
   function wireRemoveButtons(el: HTMLElement) {
     el.querySelectorAll<HTMLButtonElement>(".qm-sel-remove").forEach((btn) => {
@@ -355,7 +288,7 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
         const header = planets.length > 1
           ? `<div class="qm-sel-count">${planets.length} selected</div>`
           : "";
-        viewPlanetEl.innerHTML = header + planets.map((p) => planetCard(p, true)).join("");
+        viewPlanetEl.innerHTML = header + planets.map((p) => planetCard(p, PLAYER_COLORS, true)).join("");
         const planetAcc = root.querySelector<HTMLDetailsElement>('.qm-acc[data-sec="planet"]');
         if (planetAcc && !planetAcc.open) planetAcc.open = true;
         wireRemoveButtons(viewPlanetEl);
@@ -368,7 +301,7 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
         const header = fleets.length > 1
           ? `<div class="qm-sel-count">${fleets.length} selected</div>`
           : "";
-        viewFleetEl.innerHTML = header + fleets.map((f) => fleetCard(f, true)).join("");
+        viewFleetEl.innerHTML = header + fleets.map((f) => fleetCard(f, PLAYER_COLORS, true)).join("");
         const fleetAcc = root.querySelector<HTMLDetailsElement>('.qm-acc[data-sec="fleet"]');
         if (fleetAcc && !fleetAcc.open) fleetAcc.open = true;
         wireRemoveButtons(viewFleetEl);

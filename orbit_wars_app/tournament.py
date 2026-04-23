@@ -23,15 +23,15 @@ def _filter_agents_by_tags(
     include: list[str],
     exclude: list[str],
 ) -> list["AgentInfo"]:
-    """Filtruj agentów po tagach.
+    """Filter agents by tags.
 
-    Semantyka:
-    - `include=[]` → wszystkie (potem exclude jeszcze może trymować)
-    - `include=[a, b, ...]` → którykolwiek tag z listy musi być obecny (OR)
-    - `exclude=[a, b, ...]` → żaden z tych tagów NIE może być obecny (AND)
-    - `disabled: true` → zawsze pomijany
+    Semantics:
+    - `include=[]` → all (then exclude can still trim)
+    - `include=[a, b, ...]` → any tag from the list must be present (OR)
+    - `exclude=[a, b, ...]` → none of these tags may be present (AND)
+    - `disabled: true` → always skipped
 
-    Zwraca listę w oryginalnej kolejności.
+    Returns the list in original order.
     """
     out = []
     inc_set = set(include)
@@ -349,7 +349,7 @@ def _cmd_show(args):
     print(f"License:     {match.license or '-'}")
     print(f"LB claim:    {match.author_claimed_lb_score if match.author_claimed_lb_score else '-'}")
     print(f"Fetched:     {match.date_fetched or '-'}")
-    # DEPRECATED — pokazujemy tylko gdy ustawione, dla backward compat
+    # DEPRECATED — only show when set, for backward compat
     if match.source_url:
         print(f"Source URL (DEPRECATED): {match.source_url}")
     if match.version:
@@ -369,7 +369,7 @@ def _cmd_run(args):
     zoo = scan_zoo(args.zoo)
     agents = args.agents
 
-    # Filter path 1: explicit --agents (lista ID'ów)
+    # Filter path 1: explicit --agents (list of IDs)
     if agents:
         # nothing — explicit list used as-is
         pass
@@ -380,11 +380,11 @@ def _cmd_run(args):
         # Then apply tag filter ON TOP of bucket
         filtered = _filter_agents_by_tags(filtered, include=args.tag, exclude=args.exclude_tag)
         agents = [a.id for a in filtered]
-    # Filter path 3: --tag / --exclude-tag (sam)
+    # Filter path 3: --tag / --exclude-tag (alone)
     elif args.tag or args.exclude_tag:
         filtered = _filter_agents_by_tags(zoo, include=args.tag, exclude=args.exclude_tag)
         agents = [a.id for a in filtered]
-    # Filter path 4: none → wszyscy niedisabled
+    # Filter path 4: none → all non-disabled
     else:
         agents = [a.id for a in zoo if not a.disabled]
 
@@ -499,13 +499,13 @@ def main():
     p_run.add_argument("--bucket", default="", help="Comma-separated buckets (baselines,external,mine)")
     p_run.add_argument(
         "--tag", action="append", default=[],
-        help="Include agentów z tym tagiem (wielokrotnie = OR). "
-             "Przykład: --tag benchmark --tag quick → benchmark OR quick",
+        help="Include agents with this tag (repeatable = OR). "
+             "Example: --tag benchmark --tag quick → benchmark OR quick",
     )
     p_run.add_argument(
         "--exclude-tag", action="append", default=[], dest="exclude_tag",
-        help="Pomiń agentów z tym tagiem (wielokrotnie = AND). "
-             "Przykład: --exclude-tag broken --exclude-tag slow",
+        help="Exclude agents with this tag (repeatable = AND). "
+             "Example: --exclude-tag broken --exclude-tag slow",
     )
     p_run.add_argument("--games-per-pair", type=int, default=3, help="K games per pair (default 3)")
     p_run.add_argument("--mode", choices=["fast", "faithful"], default="fast",

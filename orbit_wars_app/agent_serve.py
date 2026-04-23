@@ -1,13 +1,13 @@
-"""Agent HTTP server — uruchamiany W subprocesie coordinatora.
+"""Agent HTTP server — launched IN a subprocess by the coordinator.
 
 Invocation: `python -m orbit_wars_app.agent_serve --agent-dir <path>`
 
-Protokół:
-- Na stdout line: {"status": "ready", "url": "http://127.0.0.1:<port>"}
-- Na POST /act payload {action: "act", configuration: {...}, state: {observation: {...}}}
-  zwraca {action: <agent_output>}.
+Protocol:
+- On stdout line: {"status": "ready", "url": "http://127.0.0.1:<port>"}
+- On POST /act payload {action: "act", configuration: {...}, state: {observation: {...}}}
+  returns {action: <agent_output>}.
 
-Kompatybilny 1:1 z kaggle-environments UrlAgent (agent.py).
+1:1 compatible with kaggle-environments UrlAgent (agent.py).
 """
 from __future__ import annotations
 
@@ -32,20 +32,20 @@ def load_agent(agent_dir: str) -> Optional[Callable]:
     if spec is None or spec.loader is None:
         return None
     mod = importlib.util.module_from_spec(spec)
-    # Dodaj agent_dir do sys.path (append, żeby parity z kaggle-envs agent.py:53
-    # — instalowane pakiety mają pierwszeństwo przed lokalnymi helpers.py).
+    # Append agent_dir to sys.path (to parity with kaggle-envs agent.py:53
+    # — installed packages take priority over local helpers.py).
     agent_dir_str = str(agent_dir)
     sys.path.append(agent_dir_str)
     try:
         spec.loader.exec_module(mod)
     finally:
-        # Usuń pierwsze wystąpienie (append dodał na koniec)
+        # Remove the first occurrence (append added it at the end)
         try:
             sys.path.remove(agent_dir_str)
         except ValueError:
             pass
-    # Zgodnie z kaggle-envs agent.py:64: bierzemy ostatni callable z namespace,
-    # BEZ filtrowania klas/builtins (agent może być klasą z __call__ lub factory).
+    # Per kaggle-envs agent.py:64: take the last callable from namespace,
+    # WITHOUT filtering classes/builtins (agent may be a class with __call__ or a factory).
     callables = [v for v in vars(mod).values() if callable(v)]
     return callables[-1] if callables else None
 
@@ -65,7 +65,7 @@ def _make_app(agent_fn: Callable):
 
     app = FastAPI()
 
-    # Cache co_argcount raz (uniknij hasattr per-request)
+    # Cache co_argcount once (avoid hasattr per-request)
     argcount = _count_args(agent_fn)
 
     # NOTE: We avoid `from __future__ import annotations` interplay with
