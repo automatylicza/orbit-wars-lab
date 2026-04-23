@@ -1,0 +1,5 @@
+name: Random
+description: "Re-eksport random_agent z engine (refs/engine/orbit_wars.py:760). Launches fleets w losowych kierunkach."
+author: Kaggle
+license: "Apache 2.0"
+tags: [baseline, reference]

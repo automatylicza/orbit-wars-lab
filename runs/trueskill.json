@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "last_updated": "2026-04-23T10:15:40.335864+00:00",
+  "ratings": {
+    "baselines/nearest-sniper": {
+      "2p": {
+        "mu": 606.940740252349,
+        "sigma": 33.33412984054148,
+        "games_played": 84
+      },
+      "4p": {
+        "mu": 566.6419197198076,
+        "sigma": 98.63185649779005,
+        "games_played": 2
+      }
+    },
+    "baselines/random": {
+      "2p": {
+        "mu": 469.53872796660244,
+        "sigma": 42.68458231882786,
+        "games_played": 84
+      },
+      "4p": {
+        "mu": 566.7230834938396,
+        "sigma": 98.62130834732712,
+        "games_played": 2
+      }
+    },
+    "baselines/starter": {
+      "2p": {
+        "mu": 745.9261868145245,
+        "sigma": 32.950031141015366,
+        "games_played": 82
+      },
+      "4p": {
+        "mu": 616.9879326793704,
+        "sigma": 107.21926476399237,
+        "games_played": 2
+      }
+    },
+    "external/kashiwaba-rl": {
+      "2p": {
+        "mu": 428.6554862524874,
+        "sigma": 43.22717835003715,
+        "games_played": 96
+      },
+      "4p": {
+        "mu": 557.6935535792377,
+        "sigma": 130.24041183708695,
+        "games_played": 1
+      }
+    },
+    "external/pilkwang-structured": {
+      "2p": {
+        "mu": 1072.9741745637793,
+        "sigma": 30.88301376696375,
+        "games_played": 82
+      },
+      "4p": {
+        "mu": 736.6440354927349,
+        "sigma": 150.3768486878406,
+        "games_played": 1
+      }
+    },
+    "external/sigmaborov-reinforce": {
+      "2p": {
+        "mu": 949.3122350558132,
+        "sigma": 29.850582326631645,
+        "games_played": 82
+      }
+    },
+    "external/sigmaborov-starter": {
+      "2p": {
+        "mu": 766.747101097017,
+        "sigma": 32.84494187064459,
+        "games_played": 82
+      }
+    },
+    "external/tamrazov-starwars": {
+      "2p": {
+        "mu": 1042.304557875086,
+        "sigma": 29.683738787837108,
+        "games_played": 82
+      }
+    },
+    "external/yuriygreben-architect": {
+      "2p": {
+        "mu": 993.0732990742622,
+        "sigma": 29.46985911827761,
+        "games_played": 82
+      }
+    }
+  }
+}

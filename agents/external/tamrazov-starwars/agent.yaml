@@ -1,0 +1,10 @@
+name: "Tamrazov Starwars"
+description: "Strong rule-based, ~3300 LOC — sun-dodge + multi-step intercept + gang-up + crash-exploit + total-war endgame. Author claims LB MAX 1224."
+author: "Roman Tamrazov"
+kernel_slug: romantamrazov/orbit-star-wars-lb-max-1224
+kernel_version: 6
+date_fetched: 2026-04-21
+license: "Apache 2.0"
+author_claimed_lb_score: 1224
+tags: [rule-based, forward-sim, benchmark]
+disabled: false

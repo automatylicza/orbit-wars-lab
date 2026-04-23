@@ -1,0 +1,9 @@
+name: "Kashiwaba PPO RL (2000 updates)"
+description: "Trained PPO policy (MLP, 153k params) — per-planet decisions, action space reduced to 'no-op or target-k-of-8-candidates'. 100% win rate vs nearest-planet-sniper (20/20 deterministic per notebook). Checkpoint weights from kashiwaba/orbitwars-ppo-sample-weight dataset."
+author: "YumeNeko"
+kernel_slug: kashiwaba/orbit-wars-reinforcement-learning-tutorial
+kernel_version: 2
+date_fetched: 2026-04-23
+license: "unknown"
+tags: [neural-network, ppo, reinforcement-learning, benchmark]
+disabled: false

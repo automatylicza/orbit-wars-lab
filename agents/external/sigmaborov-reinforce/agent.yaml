@@ -1,0 +1,10 @@
+name: "Sigmaborov Reinforce (LB 958.1)"
+description: "Evolved rule-based agent with WorldModel, comet-aware aim-with-prediction, sun-dodge, and reinforce/plan modules over a rolling horizon. 1896 LOC, 2 versions. Author claims LB 958.1."
+author: "sigmaborov"
+kernel_slug: sigmaborov/lb-958-1-orbit-wars-2026-reinforce
+kernel_version: 2
+date_fetched: 2026-04-21
+license: "Apache 2.0"
+tags: [rule-based, benchmark, world-model, comet-aware, sun-dodge, reinforce, forward-sim]
+disabled: false
+author_claimed_lb_score: 958.1

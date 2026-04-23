@@ -1,0 +1,48 @@
+.config-bar {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: transparent;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+.config-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.config-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-right: 4px;
+  letter-spacing: 0.06em;
+  min-width: 54px; /* equalize label column so pills align across rows */
+}
+
+.config-pill {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: color 120ms, border-color 120ms, background-color 120ms;
+}
+
+.config-pill:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.config-pill.on {
+  background: var(--accent-bg);
+  border-color: var(--accent-strong);
+  color: var(--accent);
+}

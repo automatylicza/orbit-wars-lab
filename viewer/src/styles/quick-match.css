@@ -1,0 +1,502 @@
+.quick-match {
+  display: flex;
+  height: calc(100vh - 49px);  /* header-nav */
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  overflow: hidden; /* no horizontal scroll — children must shrink instead */
+}
+
+.qm-left {
+  flex: 0 0 var(--qm-left-width, 360px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.qm-mode-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.qm-mode-tab {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 120ms, background-color 120ms, border-bottom-color 120ms;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.qm-mode-tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+.qm-mode-tab.on {
+  color: var(--accent);
+  border-bottom-color: var(--accent-strong);
+}
+
+.qm-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* sidebar scrolls when many selections fill it */
+}
+
+.qm-pane[hidden] {
+  display: none;
+}
+
+.qm-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.qm-section:last-child {
+  border-bottom: 0;
+}
+
+.qm-section > h3 {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  font-family: var(--font-sans);
+}
+
+/* Selected planet/fleet panels */
+.qm-sel-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.qm-sel-card {
+  position: relative;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.qm-sel-card:last-child {
+  border-bottom: 0;
+}
+.qm-sel-card + .qm-sel-card {
+  margin-top: 2px;
+}
+
+.qm-sel-remove {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: color 120ms, border-color 120ms;
+}
+.qm-sel-remove:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.qm-sel-stats {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+}
+.qm-sel-stats dt {
+  color: var(--text-muted);
+  text-transform: lowercase;
+}
+.qm-sel-stats dd {
+  margin: 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.qm-sel-stats dd .color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.qm-sel-section-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 10px 0 5px;
+}
+
+.qm-sel-muted {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.qm-inbound {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+.qm-inbound li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+.qm-inbound .color-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.qm-inbound-ships {
+  color: var(--text-primary);
+  min-width: 2ch;
+}
+.qm-inbound-eta {
+  color: var(--accent);
+}
+.qm-inbound-from {
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+/* Accordion sections in the View tab. */
+.qm-acc {
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.qm-acc:last-child {
+  border-bottom: 0;
+}
+.qm-acc-head {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 16px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  transition: color 120ms;
+}
+.qm-acc-head::-webkit-details-marker {
+  display: none;
+}
+.qm-acc-head:hover {
+  color: var(--text-primary);
+}
+.qm-acc-caret {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  width: 10px;
+  transition: transform 120ms;
+  transform: rotate(-90deg);
+}
+.qm-acc[open] > .qm-acc-head .qm-acc-caret {
+  transform: rotate(0);
+}
+.qm-acc > :not(summary) {
+  padding: 0 16px 14px;
+}
+
+.qm-view-empty {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+.qm-view-run {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
+.qm-view-step {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  margin: 6px 0;
+}
+.qm-view-step strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.qm-view-players {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qm-view-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.qm-view-player.winner {
+  border-color: var(--accent-strong);
+  background: var(--accent-bg);
+}
+
+.qm-view-player .color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.qm-view-player-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qm-view-player-score {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  min-width: 30px;
+  text-align: right;
+}
+
+.qm-view-player-crown {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.qm-display-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qm-display-pills .settings-pill {
+  text-align: left;
+  padding: 6px 12px;
+}
+
+.quick-match.qm-collapsed .qm-left {
+  flex: 0 0 0;
+  border-right: 0;
+}
+
+.qm-right {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0; /* allow shrink below content intrinsic size on narrow viewports */
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.qm-resize {
+  flex: 0 0 6px; /* wider hit area than visible line */
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+  user-select: none;
+}
+
+/* Delicate 1px guide line inside the 6px hit area, fades in on hover/drag. */
+.qm-resize::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 120ms;
+  pointer-events: none;
+}
+
+.qm-resize:hover::before,
+.qm-resize.dragging::before {
+  opacity: 0.6;
+}
+
+/* Collapse toggle — small pill centered on the resize handle. Transparent
+   background, subtle border, no loud accent-bg fill on hover. */
+.qm-collapse-btn {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1;
+  z-index: 2;
+  padding: 0;
+  transition: color 120ms, border-color 120ms;
+}
+
+.qm-collapse-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.quick-match.qm-collapsed .qm-resize {
+  cursor: default;
+}
+
+.quick-match.qm-collapsed .qm-resize:hover::before {
+  opacity: 0;
+}
+
+#qm-picker {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+#qm-config,
+#qm-warning,
+#qm-toast {
+  flex-shrink: 0;
+}
+
+.qm-warning {
+  margin: 8px 12px;
+  padding: 6px 10px;
+  background: transparent;
+  border-left: 2px solid var(--error);
+  color: var(--error);
+  font-size: 0.8rem;
+}
+
+.qm-toast {
+  margin: 8px 12px;
+  padding: 6px 10px;
+  background: transparent;
+  border-left: 2px solid var(--error);
+  color: var(--error);
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+}
+
+.qm-play {
+  margin: 10px 12px 12px;
+  padding: 9px 16px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-strong);
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 150ms, box-shadow 150ms;
+  flex-shrink: 0;
+}
+
+.qm-play:hover:not(:disabled) {
+  background: var(--accent-bg-hover);
+}
+
+.qm-play:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.qm-result-card {
+  padding: 10px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-family: var(--font-mono);
+}
+
+.qm-result-main {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.qm-result-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+#qm-replay-inner {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

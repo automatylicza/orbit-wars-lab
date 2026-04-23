@@ -1,0 +1,10 @@
+name: "Pilkwang Structured Baseline v11"
+description: "Layered rule-based agent with Physics + WorldModel (arrival-time ownership forecasting) + Strategy (reinforce/rescue/recapture/capture/snipe/swarm/crash/salvage). 3108 LOC, 45 versions, author claims Score ~1,000 LB (strong 1v1, weak 1v3)."
+author: "Pilkwang Kim"
+kernel_slug: pilkwang/orbit-wars-structured-baseline
+kernel_version: 45
+date_fetched: 2026-04-21
+license: "Apache 2.0"
+tags: [rule-based, benchmark, world-model, arrival-time-forecast, reinforce, sniper, swarm, time-budget]
+disabled: false
+author_claimed_lb_score: 1000

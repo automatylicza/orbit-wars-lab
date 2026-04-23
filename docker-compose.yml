@@ -1,0 +1,18 @@
+# Orbit Wars Lab — one-command local launcher.
+# Usage:  docker compose up        (then open http://localhost:6001)
+#
+# The single `app` service runs the Python backend on 8000 and also serves
+# the prebuilt Vite bundle at the same origin. We publish it as :6001 to
+# match the native-dev convention.
+
+services:
+  app:
+    build: .
+    image: orbit-wars-lab:latest
+    container_name: orbit-wars-lab
+    ports:
+      - "6001:8000"
+    # Persist tournament artifacts across `docker compose down` runs.
+    volumes:
+      - ./runs:/app/runs
+    restart: unless-stopped

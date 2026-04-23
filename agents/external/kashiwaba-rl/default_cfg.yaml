@@ -1,0 +1,30 @@
+seed: 42
+run_name: orbit_wars_ppo
+device: auto
+save_dir: /kaggle/working/artifacts
+checkpoint_every: 50
+log_every: 1
+opponent: self
+self_play_update_interval: 50
+self_play_deterministic: false
+alternate_player_sides: true
+
+env:
+  candidate_count: 8
+  ship_bucket_count: 8
+
+model:
+  hidden_size: 128
+
+ppo:
+  rollout_steps: 64
+  num_envs: 2
+  total_updates: 100 # Note: For this public Notebook, total_updates is set to 100 to keep runtime short. For full training, increase it to 2000.
+  epochs: 4
+  minibatch_size: 256
+  gamma: 0.99
+  clip_coef: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  lr: 0.0003
+  max_grad_norm: 0.5

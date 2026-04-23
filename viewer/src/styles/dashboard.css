@@ -1,0 +1,208 @@
+/* Replay view DOM chain — kaggle injects .player → .viewer inside our <main id="canvas-mount">.
+   Each level must flex-grow to fill available height. */
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+#app > main[id^="canvas-mount"] {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+#app > main[id^="canvas-mount"] > .player,
+#app > main[id^="canvas-mount"] > .player > .viewer {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* ============================================================
+   Ratings table (used by leaderboard view)
+   ============================================================ */
+table.ratings {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+}
+
+table.ratings thead th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+table.ratings tbody td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+table.ratings tbody td:nth-child(1),
+table.ratings tbody td:nth-child(3),
+table.ratings tbody td:nth-child(4),
+table.ratings tbody td:nth-child(5) {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+table.ratings tbody tr {
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+
+table.ratings tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.agent-id {
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+/* Combined mode — all numeric cells monospaced (agent-id keeps its own rule). */
+table.ratings.ratings-combined tbody td:not(.agent-id) {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+table.ratings.ratings-combined thead th.group-2p,
+table.ratings.ratings-combined thead th.group-4p {
+  text-align: center;
+}
+
+/* Leaderboard format pills — reuse .settings-pill styling, flex wrapper. */
+.lb-format-pills {
+  display: flex;
+  gap: 6px;
+  margin-right: auto;
+  margin-left: 12px;
+}
+
+/* ============================================================
+   Runs / tournaments list
+   ============================================================ */
+ul.runs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+ul.runs > li {
+  display: flex;
+  gap: 14px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  transition: background-color 120ms;
+  align-items: center;
+  position: relative;
+}
+
+ul.runs > li:hover .replay-delete {
+  opacity: 1;
+}
+
+ul.runs > li:last-child {
+  border-bottom: 0;
+}
+
+ul.runs > li:hover {
+  background: var(--surface-2);
+}
+
+.run-id {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: 0.85rem;
+  min-width: 140px;
+}
+
+.run-meta {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  flex: 1;
+}
+
+.run-status {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-completed { color: var(--success); }
+.status-running { color: var(--warning); }
+.status-aborted { color: var(--error); }
+
+ul.matches {
+  list-style: none;
+  background: var(--bg);
+  margin: 0;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+
+ul.matches li {
+  display: flex;
+  gap: 14px;
+  padding: 6px 28px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: background-color 120ms;
+}
+
+ul.matches li:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   Agent view
+   ============================================================ */
+.agent-view {
+  padding: 24px 28px;
+}
+
+.agent-card dl {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 8px 24px;
+  font-size: 0.875rem;
+}
+
+.agent-card dt {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.agent-card dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}

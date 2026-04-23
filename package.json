@@ -1,0 +1,12 @@
+{
+  "name": "orbit-wars-lab-root",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm --filter @kaggle-environments/core build && pnpm --filter @orbit-wars-lab/viewer build"
+  }
+}

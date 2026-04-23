@@ -1,0 +1,68 @@
+.header-nav {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  padding: 14px 28px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.header-nav .nav-brand {
+  font-family: ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+  font-weight: 500;
+}
+
+.header-nav .nav-links {
+  display: flex;
+  gap: 22px;
+}
+
+.header-nav .nav-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  padding: 2px 0;
+  border-bottom: 1px solid transparent;
+  transition: color 150ms, border-color 150ms;
+}
+
+.header-nav .nav-link:hover {
+  color: var(--text-secondary);
+}
+
+.header-nav .nav-link.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.header-nav .nav-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-nav .theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 120ms, border-color 120ms, background-color 120ms;
+}
+
+.header-nav .theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent-strong);
+  background: var(--accent-bg);
+}

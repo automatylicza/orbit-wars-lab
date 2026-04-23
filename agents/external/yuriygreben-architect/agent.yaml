@@ -1,0 +1,9 @@
+name: "Yuriy Greben Physics-Aware Architect"
+description: "Centralized Commander agent, ~3000 LOC — 5 layers (Config/Physics/WorldModel/Strategy/Execution). Forward simulation with arrival ledger, multi-phase planning (early/opening/late/total war), physics-based trajectories (sun collision avoidance, predictive aiming for moving planets/comets), mission-based strategy generator."
+author: "Yuriy Greben"
+kernel_slug: yuriygreben/orbit-wars-physics-aware-architect
+kernel_version: 2
+date_fetched: 2026-04-21
+license: "Apache 2.0"
+tags: [rule-based, forward-sim, physics-aware, multi-phase]
+disabled: false

@@ -1,0 +1,5 @@
+name: Starter
+description: "Re-eksport starter_agent z engine (refs/engine/orbit_wars.py:773). Static-planet sniper baseline."
+author: Kaggle
+license: "Apache 2.0"
+tags: [baseline, reference]

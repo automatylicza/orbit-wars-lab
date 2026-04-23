@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Node
+node_modules/
+viewer/dist/
+
+# Tournament artifacts (leaderboard snapshot is intentionally tracked as seed)
+runs/2026-*/
+runs/trueskill.bak-*.json
+runs/latest
+
+# Viewer transient
+viewer/replays/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Docker
+docker-compose.override.yml

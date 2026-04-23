@@ -1,0 +1,5 @@
+name: Nearest Planet Sniper
+description: "Kaggle's 'Nearest Planet Sniper' baseline — kopia z refs/data/main.py; ten sam kod prezentowany w oficjalnym tutorialu bovard/getting-started."
+author: Kaggle
+license: "Apache 2.0"
+tags: [baseline, reference, rule-based]

@@ -1,0 +1,174 @@
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.create-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 20px;
+  min-height: 340px;
+}
+
+.create-agents {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.create-agents-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.create-count {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.create-count #create-count-num {
+  color: var(--accent);
+}
+
+.create-agent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 0;
+  overflow-y: auto;
+  max-height: 400px;
+}
+
+.create-agent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  transition: background-color 120ms;
+}
+
+.create-agent:hover {
+  background: var(--surface-2);
+}
+
+.create-agent.picked {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.create-check {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 14px;
+  text-align: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.create-agent.picked .create-check {
+  background: var(--accent-bg);
+  border-color: var(--accent-strong);
+}
+
+.create-agent .agent-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.create-agent .agent-bucket {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.create-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.create-config > label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.create-config select,
+.create-config input {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  width: 140px;
+}
+
+.create-config select:focus,
+.create-config input:focus {
+  outline: 0;
+  border-color: var(--accent-strong);
+}
+
+.seg-group {
+  display: flex;
+  gap: 4px;
+}
+
+.create-actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cfg-total-matches {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+/* `hidden` attribute must beat the .create-config > label {display: flex}
+   rule — otherwise challenger dropdown shows even in round-robin mode. */
+.create-config > label[hidden] {
+  display: none;
+}
