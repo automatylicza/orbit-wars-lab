@@ -117,6 +117,7 @@ export const api = {
     mode: string;
     format: string;
     parallel?: number;
+    save_replays?: boolean;
     seed_base?: number;
     is_quick_match?: boolean;
     shape?: "round-robin" | "gauntlet";

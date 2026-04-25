@@ -7,15 +7,104 @@ import json
 import os
 import random
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from .discovery import scan_zoo
 from .match import run_match
 from .replay_store import save_replay
 from .schemas import AgentInfo, MatchResult, RunStatus, TournamentConfig
 from .trueskill_store import TrueSkillStore
+
+
+# ============================================================
+# ProcessPoolExecutor worker — top-level so it pickles cleanly.
+# ============================================================
+
+
+@dataclass
+class _WorkerResult:
+    """Pickle-friendly carrier for what the main process needs after a match.
+
+    Avoids shipping the full replay dict back through the pipe — the worker
+    persists it to disk locally (much smaller payload across the wire) and
+    returns only the metadata + relative path string.
+
+    `worker_pid` is included so tests can assert real parallelism (multiple
+    distinct PIDs over N matches) without relying on flaky wallclock checks.
+    """
+    match_counter: int
+    agent_ids: list[str]
+    winner: Optional[int]
+    scores: list[float]
+    turns: int
+    duration_s: float
+    seed: int
+    status: str
+    replay_path: str
+    worker_pid: int = 0
+
+
+def _quiet_kaggle_environments() -> None:
+    """Silence kaggle-environments' chatty import-time logging in workers.
+
+    The OpenSpiel env loader hard-codes `_log.setLevel(logging.INFO)` and
+    streams ~30 lines per import to stdout. Bumping the
+    `kaggle_environments` logger level above INFO suppresses those without
+    affecting our own logs (we log under `orbit_wars_app.*`). Loggers are
+    process-wide and persist across `ProcessPoolExecutor` worker reuse, so
+    we run this once per worker via the executor's `initializer` rather
+    than per match.
+    """
+    import logging
+    logging.getLogger("kaggle_environments").setLevel(logging.WARNING)
+
+
+def _run_match_in_worker(
+    match_counter: int,
+    agent_ids: list[str],
+    agent_paths_str: list[str],
+    mode: str,
+    seed: int,
+    replays_dir_str: Optional[str],
+    save_replays: bool,
+) -> _WorkerResult:
+    """Run a single match in a worker process and persist the replay locally.
+
+    Returns lightweight metadata (no replay dict) so cross-process pipe
+    bandwidth isn't dominated by 5-10MB JSON payloads. Replay is written
+    inside the worker because the file system is shared and the main process
+    needs nothing about replay bytes other than the path.
+    """
+    agent_paths = [Path(p) for p in agent_paths_str]
+    outcome = run_match(
+        agent_ids=agent_ids,
+        agent_paths=agent_paths,
+        mode=mode,  # type: ignore[arg-type]
+        seed=seed,
+    )
+
+    replay_rel = ""
+    if save_replays and replays_dir_str and outcome.replay and "steps" in outcome.replay:
+        replays_dir = Path(replays_dir_str)
+        rp = save_replay(replays_dir, match_counter, agent_ids, outcome.replay)
+        replay_rel = str(rp.relative_to(replays_dir.parent))
+
+    return _WorkerResult(
+        match_counter=match_counter,
+        agent_ids=agent_ids,
+        winner=outcome.winner,
+        scores=outcome.scores,
+        turns=outcome.turns,
+        duration_s=outcome.duration_s,
+        seed=seed,
+        status=outcome.status,
+        replay_path=replay_rel,
+        worker_pid=os.getpid(),
+    )
 
 
 def _filter_agents_by_tags(
@@ -97,63 +186,108 @@ class Tournament:
         rng = random.Random(self.config.seed_base)
 
         status: RunStatus = "completed"
-        match_counter = 0
-        try:
-            for pair in pairs:
-                for _ in range(self.config.games_per_pair):
-                    match_counter += 1
-                    seed = rng.randrange(10**9)
-                    aids = [a["id"] for a in pair]
-                    apaths = [self.zoo_root.parent / a["path"] for a in pair]
+        completed_count = 0  # Used by `finally` for run.json `matches_done` —
+                             # tracks # of matches actually post-processed
+                             # (sequential or parallel), so partial-run aborts
+                             # report a truthful count instead of "highest
+                             # match_id seen".
 
+        # Build job list with deterministic seeds — assigned in pair-iteration
+        # order, so parallel execution yields identical per-match outcomes to
+        # sequential (the engine's RNG is seeded from this value, not from the
+        # ambient process state).
+        jobs: list[tuple[int, list[str], list[Path], int]] = []
+        for pair in pairs:
+            for _ in range(self.config.games_per_pair):
+                jobs.append((
+                    len(jobs) + 1,
+                    [a["id"] for a in pair],
+                    [self.zoo_root.parent / a["path"] for a in pair],
+                    rng.randrange(10**9),
+                ))
+
+        try:
+            if self.config.parallel <= 1 or self.config.mode != "fast":
+                # Sequential path. Faithful mode also takes this branch:
+                # subprocess agents already use OS-level concurrency, and
+                # nesting ProcessPoolExecutor on top would multiply RAM and
+                # lose the per-match HTTP retry isolation.
+                for mc, aids, apaths, seed in jobs:
                     outcome = run_match(
                         agent_ids=aids,
                         agent_paths=apaths,
                         mode=self.config.mode,
                         seed=seed,
                     )
-
                     replay_rel = ""
-                    if outcome.replay and "steps" in outcome.replay:
-                        rp = save_replay(
-                            replays_dir, match_counter, aids, outcome.replay
-                        )
+                    if (self.config.save_replays
+                            and outcome.replay and "steps" in outcome.replay):
+                        rp = save_replay(replays_dir, mc, aids, outcome.replay)
                         replay_rel = str(rp.relative_to(run_dir))
-
-                    if outcome.status != "agent_failed_to_start":
-                        store.update_match(
-                            agent_ids=aids,
-                            winner=outcome.winner,
-                            format=self.config.format,
-                            scores=outcome.scores,
+                    completed_count += 1
+                    self._handle_match_outcome(
+                        matches, store, run_dir, run_id, started_at,
+                        total_matches, mc, aids, seed,
+                        winner=outcome.winner, scores=outcome.scores,
+                        turns=outcome.turns, duration_s=outcome.duration_s,
+                        match_status=outcome.status, replay_path=replay_rel,
+                        on_match_done=on_match_done,
+                    )
+            else:
+                # Parallel path (fast mode only). ProcessPoolExecutor amortizes
+                # the kaggle-environments import cost across N matches: each
+                # worker re-uses its loaded `make("orbit_wars")` between
+                # successive matches, so the ~3s spawn overhead pays once per
+                # worker (not once per match). M-series Mac with parallel=8
+                # gives ~6-8x wallclock speedup on this round-robin shape.
+                with ProcessPoolExecutor(
+                    max_workers=self.config.parallel,
+                    initializer=_quiet_kaggle_environments,
+                ) as ex:
+                    futs = {
+                        ex.submit(
+                            _run_match_in_worker,
+                            mc, aids, [str(p) for p in apaths],
+                            self.config.mode, seed,
+                            str(replays_dir) if self.config.save_replays else None,
+                            self.config.save_replays,
+                        ): (mc, aids, apaths, seed)
+                        for mc, aids, apaths, seed in jobs
+                    }
+                    for fut in as_completed(futs):
+                        try:
+                            wr = fut.result()
+                        except BaseException as e:
+                            # A worker exception not caught by run_match's own
+                            # try/except (pickle failure, OOM, OSError on
+                            # replay write) would otherwise abort the entire
+                            # tournament and discard already-collected
+                            # matches. Synthesize a `crashed` outcome so this
+                            # match drops out of ratings but the rest of the
+                            # run completes — same fault-tolerance contract
+                            # as `run_match_fast`.
+                            mc, aids, apaths, seed = futs[fut]
+                            wr = _WorkerResult(
+                                match_counter=mc, agent_ids=aids,
+                                winner=None, scores=[], turns=0,
+                                duration_s=0.0, seed=seed,
+                                status="crashed", replay_path="",
+                                worker_pid=0,
+                            )
+                            # Record the failure on the run for postmortem.
+                            (run_dir / f"worker-error-{mc:03d}.txt").write_text(
+                                f"{type(e).__name__}: {e}\n"
+                            )
+                        completed_count += 1
+                        self._handle_match_outcome(
+                            matches, store, run_dir, run_id, started_at,
+                            total_matches, wr.match_counter, wr.agent_ids,
+                            wr.seed, winner=wr.winner, scores=wr.scores,
+                            turns=wr.turns, duration_s=wr.duration_s,
+                            match_status=wr.status, replay_path=wr.replay_path,
+                            progress_count=completed_count,
+                            on_match_done=on_match_done,
                         )
-
-                    match_result = MatchResult(
-                        match_id=f"{match_counter:03d}",
-                        agent_ids=aids,
-                        winner=outcome.winner,
-                        scores=outcome.scores,
-                        turns=outcome.turns,
-                        duration_s=outcome.duration_s,
-                        status=outcome.status,  # type: ignore[arg-type]
-                        seed=seed,
-                        replay_path=replay_rel,
-                    )
-                    matches.append(match_result)
-
-                    # Persist live progress so /runs/{id}/progress can stream
-                    # match_counter to the UI. Without this rewrite the file
-                    # only changes at start (0/N) and finish (N/N) — the
-                    # progress bar would freeze at 0 for the whole run.
-                    self._write_run_json(
-                        run_dir, run_id, started_at, None, "running",
-                        total_matches, match_counter,
-                    )
-
-                    # Streaming callback — any exception in callback is
-                    # user's problem, not ours; let it propagate.
-                    if on_match_done is not None:
-                        on_match_done(match_result, match_counter, total_matches)
         except BaseException:
             status = "aborted"
             raise
@@ -165,7 +299,7 @@ class Tournament:
             finished_at = datetime.now(timezone.utc).isoformat()
             self._write_run_json(
                 run_dir, run_id, started_at, finished_at, status,
-                total_matches, match_counter,
+                total_matches, completed_count,
             )
 
             # config + results always written (partial on abort)
@@ -179,6 +313,10 @@ class Tournament:
                 "started_at": started_at,
             }, indent=2))
 
+            # Parallel execution completes out-of-order; sort by match_id so
+            # results.json reads naturally and downstream consumers (UI run
+            # detail, head-to-head matrix) get consistent ordering.
+            matches.sort(key=lambda m: m.match_id)
             summary = self._build_summary(matches)
             (run_dir / "results.json").write_text(json.dumps({
                 "started_at": started_at,
@@ -199,6 +337,63 @@ class Tournament:
                 (self.runs_root / "latest.txt").write_text(run_id)
 
         return run_id
+
+    def _handle_match_outcome(
+        self,
+        matches: list[MatchResult],
+        store: TrueSkillStore,
+        run_dir: Path,
+        run_id: str,
+        started_at: str,
+        total_matches: int,
+        match_counter: int,
+        agent_ids: list[str],
+        seed: int,
+        *,
+        winner: Optional[int],
+        scores: list[float],
+        turns: int,
+        duration_s: float,
+        match_status: str,
+        replay_path: str,
+        progress_count: Optional[int] = None,
+        on_match_done: Optional[Callable[["MatchResult", int, int], None]] = None,
+    ) -> None:
+        """Post-process a finished match: update store, append to results,
+        write run.json, fire callback. Called from both sequential and
+        parallel branches so the side-effect protocol stays in one place.
+
+        `progress_count` is the high-water mark for run.json (parallel branch
+        passes the as_completed counter; sequential passes None and falls
+        back to match_counter). Without this distinction the parallel branch
+        would write decreasing values when matches complete out-of-order.
+        """
+        if match_status != "agent_failed_to_start":
+            store.update_match(
+                agent_ids=agent_ids,
+                winner=winner,
+                format=self.config.format,
+                scores=scores,
+            )
+        match_result = MatchResult(
+            match_id=f"{match_counter:03d}",
+            agent_ids=agent_ids,
+            winner=winner,
+            scores=scores,
+            turns=turns,
+            duration_s=duration_s,
+            status=match_status,  # type: ignore[arg-type]
+            seed=seed,
+            replay_path=replay_path,
+        )
+        matches.append(match_result)
+        progress = progress_count if progress_count is not None else match_counter
+        self._write_run_json(
+            run_dir, run_id, started_at, None, "running",
+            total_matches, progress,
+        )
+        if on_match_done is not None:
+            on_match_done(match_result, progress, total_matches)
 
     def _write_run_json(
         self,
@@ -408,9 +603,9 @@ def _cmd_run(args):
             file=sys.stderr,
         )
         sys.exit(1)
-    if args.parallel > 1:
+    if args.parallel > 1 and args.mode != "fast":
         print(
-            "--parallel >1 not yet implemented (Plan B feature); running sequentially.",
+            "--parallel >1 only supported in fast mode; falling back to sequential.",
             file=sys.stderr,
         )
         args.parallel = 1
@@ -423,6 +618,7 @@ def _cmd_run(args):
         format=args.format,
         parallel=args.parallel,
         seed_base=args.seed,
+        save_replays=not args.no_replays,
     )
     t = Tournament(config=cfg, runs_root=args.runs, zoo_root=args.zoo)
     run_id = t.run()
@@ -524,6 +720,8 @@ def main():
                        help="Match format — 2-player or 4-player FFA (default 2p)")
     p_run.add_argument("--parallel", type=int, default=1, help="Parallel matches (fast mode only)")
     p_run.add_argument("--seed", type=int, default=42, help="Base seed for match randomness")
+    p_run.add_argument("--no-replays", action="store_true", dest="no_replays",
+                       help="Skip writing per-match replay JSON (5-10MB each); ratings still computed")
     p_run.set_defaults(func=_cmd_run)
 
     p_g = sub.add_parser("gauntlet", help="One challenger vs every other agent (× K games)")

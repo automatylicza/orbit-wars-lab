@@ -71,6 +71,20 @@ export async function renderTournaments(root: HTMLElement): Promise<void> {
                 <span>Seed</span>
                 <input id="cfg-seed" type="number" value="42" style="width: 100px;">
               </label>
+              <label title="ProcessPoolExecutor workers (fast mode only). 1 = sequential. Higher = faster but uses more RAM.">
+                <span>Parallel workers</span>
+                <select id="cfg-parallel">
+                  <option value="1" selected>1 (sequential)</option>
+                  <option value="2">2</option>
+                  <option value="4">4</option>
+                  <option value="6">6</option>
+                  <option value="8">8</option>
+                </select>
+              </label>
+              <label title="Skip writing per-match replay JSON files (5-10MB each). Ratings are still computed.">
+                <span>Save replays</span>
+                <input id="cfg-save-replays" type="checkbox" checked>
+              </label>
               <div id="cfg-total-matches" class="cfg-total-matches"></div>
               <div class="create-actions">
                 <div id="create-status" class="scrape-status" hidden></div>
@@ -283,6 +297,11 @@ export async function renderTournaments(root: HTMLElement): Promise<void> {
       (document.getElementById("cfg-seed") as HTMLInputElement).value,
       10,
     );
+    const parallel = parseInt(
+      (document.getElementById("cfg-parallel") as HTMLSelectElement).value,
+      10,
+    );
+    const saveReplays = (document.getElementById("cfg-save-replays") as HTMLInputElement).checked;
     statusEl.hidden = false;
     statusEl.textContent = "Starting…";
     try {
@@ -291,7 +310,8 @@ export async function renderTournaments(root: HTMLElement): Promise<void> {
         games_per_pair: games,
         mode,
         format,
-        parallel: 1,
+        parallel: isNaN(parallel) ? 1 : parallel,
+        save_replays: saveReplays,
         seed_base: isNaN(seed) ? 42 : seed,
         is_quick_match: false,
         shape: shape as "round-robin" | "gauntlet",

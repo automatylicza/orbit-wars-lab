@@ -95,8 +95,14 @@ class TournamentConfig(BaseModel):
     games_per_pair: int = 3
     mode: Mode = "fast"
     format: Format = "2p"
-    parallel: int = 1
+    # >=2 enables ProcessPoolExecutor (fast mode only). Capped at 16 to bound
+    # RAM usage on machines with many cores — each worker re-imports
+    # kaggle-environments (~150MB resident) and the speedup curve flattens
+    # well before 16 on round-robin shapes.
+    parallel: int = Field(default=1, ge=1, le=16)
     seed_base: int = 42
+    # set False for seed-only runs to skip 5-10MB JSON writes per match
+    save_replays: bool = True
     is_quick_match: bool = False  # True when launched from the Quick Match UI (filtered out by /api/runs?exclude_quick_match=true)
     shape: TournamentShape = "round-robin"
     # Required when shape="gauntlet". Must be present in agents. The runner
