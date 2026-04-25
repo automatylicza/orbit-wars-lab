@@ -1,0 +1,4 @@
+name: Agent OK
+description: "Test fixture — empty action agent"
+author: test
+tags: [baseline, test]

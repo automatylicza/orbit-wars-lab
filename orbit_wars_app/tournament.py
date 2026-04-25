@@ -125,6 +125,7 @@ class Tournament:
                             agent_ids=aids,
                             winner=outcome.winner,
                             format=self.config.format,
+                            scores=outcome.scores,
                         )
 
                     match_result = MatchResult(
@@ -139,6 +140,15 @@ class Tournament:
                         replay_path=replay_rel,
                     )
                     matches.append(match_result)
+
+                    # Persist live progress so /runs/{id}/progress can stream
+                    # match_counter to the UI. Without this rewrite the file
+                    # only changes at start (0/N) and finish (N/N) — the
+                    # progress bar would freeze at 0 for the whole run.
+                    self._write_run_json(
+                        run_dir, run_id, started_at, None, "running",
+                        total_matches, match_counter,
+                    )
 
                     # Streaming callback — any exception in callback is
                     # user's problem, not ours; let it propagate.

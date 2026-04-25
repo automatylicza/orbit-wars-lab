@@ -111,13 +111,22 @@ def scrape_submission(
 
     Returns the ScrapeJob with final state.
     """
-    job = ScrapeJob(
-        job_id=job_id or uuid.uuid4().hex,
-        submission_id=submission_id,
-        count=count,
-    )
+    resolved_id = job_id or uuid.uuid4().hex
     with _jobs_lock:
-        _jobs[job.job_id] = job
+        existing = _jobs.get(resolved_id)
+        if existing is not None:
+            # API handler pre-registered the job; mutate it in-place so any
+            # concurrent poll sees our state, not a stale pending sentinel.
+            job = existing
+            job.submission_id = submission_id
+            job.count = count
+        else:
+            job = ScrapeJob(
+                job_id=resolved_id,
+                submission_id=submission_id,
+                count=count,
+            )
+            _jobs[job.job_id] = job
 
     try:
         job.status = "running"
@@ -135,20 +144,25 @@ def scrape_submission(
             json.dumps(episodes, indent=2), encoding="utf-8"
         )
 
-        to_download = episodes[: max(0, count)]
+        missing = [
+            ep for ep in episodes
+            if not (out_dir / f"episode_{int(ep.get('id'))}.json").exists()
+        ]
+        to_download = missing[: max(0, count)]
         job.total = len(to_download)
 
         for ep in to_download:
             ep_id = int(ep.get("id"))
             replay_path = out_dir / f"episode_{ep_id}.json"
-            if replay_path.exists():
-                job.downloaded += 1
-                job.replay_ids.append(ep_id)
-                continue
             try:
                 payload = fetch_replay(session, ep_id)
                 replay_path.write_text(
                     json.dumps(payload), encoding="utf-8"
+                )
+                meta_path = out_dir / f"episode_{ep_id}.meta.json"
+                meta_path.write_text(
+                    json.dumps(_extract_meta(payload, ep_id), indent=2),
+                    encoding="utf-8",
                 )
                 job.downloaded += 1
                 job.replay_ids.append(ep_id)
@@ -176,17 +190,22 @@ def _extract_meta(payload: dict, episode_id: int) -> dict:
     team_names = info.get("TeamNames", []) or [a.get("Name") for a in agents]
     rewards = payload.get("rewards", []) if isinstance(payload, dict) else []
 
+    # Winner inference. Engine gives reward=1 ONLY to the unique top scorer;
+    # ties and all-dead games give reward=-1 to every player. So a valid
+    # winner exists iff there's a unique positive max. Previously we used
+    # `max(range(…), key=…)` which returns index 0 on ties — that labeled
+    # every drawn Kaggle episode as "P0 wins", including 0-vs-0 disasters.
     winner_idx: Optional[int] = None
-    if rewards and any(r is not None for r in rewards):
-        try:
-            winner_idx = max(
-                range(len(rewards)),
-                key=lambda i: rewards[i] if rewards[i] is not None else float("-inf"),
-            )
-        except ValueError:
-            winner_idx = None
+    clean_rewards = [r for r in rewards if isinstance(r, (int, float))]
+    if clean_rewards:
+        max_r = max(clean_rewards)
+        if max_r > 0:
+            top_indices = [i for i, r in enumerate(rewards) if r == max_r]
+            if len(top_indices) == 1:
+                winner_idx = top_indices[0]
 
     return {
+        "meta_schema": 2,  # bump when fields or inference logic change
         "episode_id": episode_id,
         "agents": [{"name": a.get("Name")} for a in agents],
         "team_names": team_names,
@@ -292,14 +311,19 @@ def list_local_kaggle_replays(replays_root: Path) -> list[dict]:
                 "ts": replay_file.stat().st_mtime,
             }
 
-            # 1. Per-episode meta (cheap)
+            # 1. Per-episode meta (cheap). Older meta files were written with
+            # a buggy winner inference (drawn games labeled as P0 win). Skip
+            # pre-schema-2 cached meta and let stage 3 re-derive + rewrite it.
             meta_path = sub_dir / f"episode_{ep_id}.meta.json"
+            meta_is_fresh = False
             if meta_path.is_file():
                 try:
                     m = json.loads(meta_path.read_text())
-                    entry["agents"] = m.get("agents", [])
-                    entry["team_names"] = m.get("team_names", [])
-                    entry["winner"] = m.get("winner")
+                    if m.get("meta_schema", 0) >= 2:
+                        entry["agents"] = m.get("agents", [])
+                        entry["team_names"] = m.get("team_names", [])
+                        entry["winner"] = m.get("winner")
+                        meta_is_fresh = True
                 except Exception:
                     pass
 
@@ -310,8 +334,18 @@ def list_local_kaggle_replays(replays_root: Path) -> list[dict]:
                 entry["type"] = meta.get("type")
                 entry["endTime"] = meta.get("endTime")
 
-            # 3. Last-resort fallback: parse replay and backfill meta (once)
-            if "agents" not in entry or not entry["agents"]:
+            # 3. Last-resort fallback: parse replay and backfill meta.
+            # Runs when no meta cache, OR cache is pre-schema-2 (stale winner
+            # inference), OR agents exist but lack human names.
+            def _has_names(agents: list) -> bool:
+                return any(isinstance(a, dict) and a.get("name") for a in agents)
+
+            needs_rederive = (
+                not meta_is_fresh
+                or not entry.get("agents")
+                or not _has_names(entry["agents"])
+            )
+            if needs_rederive:
                 try:
                     payload = json.loads(replay_file.read_text())
                     m = _extract_meta(payload, ep_id)

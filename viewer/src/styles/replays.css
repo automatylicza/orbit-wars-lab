@@ -271,6 +271,15 @@
   font-weight: 500;
 }
 
+.replay-time {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  margin-left: auto;
+  padding-right: 28px;
+  cursor: help;
+}
+
 .replay-meta-sub {
   color: var(--text-dim);
   font-size: 0.72rem;

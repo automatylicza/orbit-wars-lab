@@ -651,3 +651,490 @@ code {
   font-size: 1rem;
   color: var(--accent);
 }
+
+/* --- Submissions view --- */
+#sub-table-wrap {
+  container-type: inline-size;
+  overflow-x: auto;  /* fallback when container queries unsupported */
+}
+
+.submissions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.submissions-table th,
+.submissions-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.submissions-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+.submissions-table tbody tr {
+  cursor: pointer;
+  transition: background 0.08s ease;
+}
+.submissions-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.submissions-table .th-id    { width: 96px; }
+.submissions-table .th-desc  { width: auto; }
+.submissions-table .th-mu    { width: 70px; text-align: right; }
+.submissions-table .th-date  { width: 110px; }
+.submissions-table .th-status{ width: 100px; }
+.submissions-table .th-fetch { width: 150px; }
+.submissions-table .th-go    { width: 28px; }
+
+.submissions-table .sub-cell-id {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+  font-size: 12px;
+}
+.submissions-table .sub-cell-desc {
+  color: var(--text-primary);
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.submissions-table .sub-cell-mu {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-weight: 500;
+}
+.submissions-table .sub-cell-date {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.submissions-table .sub-cell-go {
+  color: var(--text-dim);
+  text-align: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.sub-status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.sub-status-pill.ok      { color: #5fa85c; border-color: rgba(95,168,92,0.35); }
+.sub-status-pill.err     { color: #d05353; border-color: rgba(208,83,83,0.4); }
+.sub-status-pill.pending { color: var(--text-muted); }
+
+.submissions-table .sub-cell-fetch {
+  white-space: nowrap;
+  text-align: right;
+}
+.sub-fetch-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  vertical-align: middle;
+  transition: border-color 0.12s, color 0.12s;
+}
+.sub-fetch-btn:hover:not([disabled]) {
+  border-color: var(--accent, #4a8cff);
+  color: var(--accent, #4a8cff);
+}
+.sub-fetch-btn[disabled] {
+  cursor: default;
+  opacity: 0.4;
+  animation: sub-fetch-spin 1.2s linear infinite;
+}
+@keyframes sub-fetch-spin { to { transform: rotate(360deg); } }
+.sub-fetch-status {
+  display: inline-block;
+  margin-left: 8px;
+  min-width: 60px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+.sub-submit-panel {
+  margin: 12px 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+.sub-submit-panel > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  user-select: none;
+}
+.sub-submit-panel > summary:hover { color: var(--text-primary); }
+.sub-submit-panel[open] > summary {
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.sub-submit-form {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sub-submit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sub-submit-form select,
+.sub-submit-form input[type="text"] {
+  padding: 6px 10px;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+.sub-submit-form select:focus,
+.sub-submit-form input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent, #4a8cff);
+}
+.sub-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.sub-submit-go {
+  width: auto !important;
+  height: 30px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  animation: none !important;
+}
+.sub-submit-go[disabled] { animation: none !important; }
+.sub-submit-status {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sub-banner {
+  padding: 10px 14px;
+  border: 1px solid var(--warn-border, #b58a2b);
+  background: var(--warn-bg, #3a2a18);
+  color: var(--warn-fg, #f0c987);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+.sub-banner a { color: inherit; text-decoration: underline; }
+
+/* Freshness indicator — sits between h2 and the refresh buttons. */
+.sub-updated {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  font-variant-numeric: tabular-nums;
+  margin-left: 12px;
+}
+
+/* Aggregated progress pill for "Fetch all new episodes" */
+.sub-fetch-all-progress {
+  padding: 8px 12px;
+  margin: 8px 0 12px;
+  background: var(--bg-elev, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, #ddd);
+}
+
+/* Responsive submissions table — panel (not viewport) driven.
+   Container queries kick in based on #sub-table-wrap width, so the table
+   adapts when rendered inside a narrow panel even when viewport is wide.
+   Breakpoints tuned empirically: fetch status text + button + status pill
+   need ~350px on top of ID/Desc/μ/Date fixed widths (~340px), so the "full
+   table" needs ~700px. Below that we progressively drop columns. */
+@container (max-width: 900px) {
+  .submissions-table th,
+  .submissions-table td { padding: 8px 10px; }
+  .submissions-table .th-go,
+  .submissions-table .sub-cell-go { display: none; }
+  .submissions-table .th-fetch { width: 80px; }
+  .sub-fetch-status { display: none; }
+}
+
+@container (max-width: 720px) {
+  .submissions-table .th-status,
+  .submissions-table .sub-cell-status { display: none; }
+  /* Status shows as colored stripe on first cell instead of pill */
+  .submissions-table tbody tr td:first-child {
+    border-left: 3px solid transparent;
+    padding-left: 9px;
+  }
+  .submissions-table tbody tr[data-status="COMPLETE"] td:first-child { border-left-color: #5fa85c; }
+  .submissions-table tbody tr[data-status="FAILED"]   td:first-child { border-left-color: #d05353; }
+  .submissions-table tbody tr[data-status="PENDING"]  td:first-child { border-left-color: var(--warning, #ffb84a); }
+  .submissions-table .sub-cell-desc { max-width: 320px; }
+}
+
+@container (max-width: 560px) {
+  .submissions-table .th-fetch,
+  .submissions-table .sub-cell-fetch { display: none; }
+  .submissions-table th,
+  .submissions-table td { padding: 8px 8px; }
+  .submissions-table .th-id { width: 84px; }
+  .submissions-table .sub-cell-id { font-size: 11px; }
+  .submissions-table .sub-cell-desc { max-width: 220px; }
+  .submissions-table .th-date { width: 90px; }
+}
+
+@container (max-width: 420px) {
+  .submissions-table th,
+  .submissions-table td { padding: 8px 6px; }
+  .submissions-table .th-id { width: 72px; }
+  .submissions-table .sub-cell-desc {
+    max-width: 160px;
+    font-size: 12px;
+  }
+  .submissions-table .th-date { width: 76px; }
+  .submissions-table .sub-cell-date { font-size: 11px; }
+}
+
+@container (max-width: 340px) {
+  .submissions-table .th-date,
+  .submissions-table .sub-cell-date { display: none; }
+}
+
+/* --- Settings view --- */
+.settings-view { max-width: 780px; }
+.settings-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 18px 20px;
+  background: var(--surface);
+  margin-top: 16px;
+}
+.settings-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.settings-group-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.kauth-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.kauth-status.ok { color: var(--text-primary); }
+.kauth-status.err { color: #d05353; }
+.kauth-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+.kauth-dot.ok { background: #5fa85c; }
+.kauth-body { display: block; }
+.kauth-steps {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.kauth-steps ol {
+  margin: 8px 0 14px;
+  padding-left: 22px;
+}
+.kauth-steps li { margin: 4px 0; }
+.kauth-steps code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+.kauth-steps a { color: var(--accent); }
+.kauth-form { display: flex; flex-direction: column; gap: 8px; }
+.kauth-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.kauth-label code {
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--accent);
+}
+.kauth-token {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.45;
+}
+.kauth-token:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+}
+.kauth-form-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.kauth-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.kauth-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.kauth-msg.ok { color: #5fa85c; }
+.kauth-msg.err { color: #d05353; }
+.kauth-error {
+  padding: 10px 14px;
+  border: 1px solid #d05353;
+  background: rgba(208, 83, 83, 0.08);
+  color: #d05353;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.settings-privacy {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.settings-privacy code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.kauth-source-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+}
+.kauth-env-note {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.kauth-env-note strong { color: var(--text-primary); }
+.kauth-env-note p { margin: 8px 0; }
+.kauth-env-note code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+.kauth-msg.warn { color: var(--warning, #ffb84a); }
+.kauth-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: kauth-spin 0.8s linear infinite;
+  vertical-align: -1px;
+}
+@keyframes kauth-spin { to { transform: rotate(360deg); } }
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  margin-right: 10px;
+  background: var(--accent-bg, #2a3a4a);
+  color: var(--accent-fg, #7fc8ff);
+  border-radius: 14px;
+  font-size: 12px;
+}
+.filter-chip-x {
+  all: unset;
+  cursor: pointer;
+  padding: 0 4px;
+  font-weight: bold;
+}
+.filter-chip-x:hover { opacity: 0.7; }
+
+.agent-logs {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}

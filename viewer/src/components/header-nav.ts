@@ -1,5 +1,5 @@
 /**
- * Persistent header nav — Quick Match / Leaderboard / Runs / Powtórki.
+ * Persistent header nav — Quick Match / Tournaments / Replays / Submissions / Agents / Leaderboard.
  * Insert at top of every view (except standalone replay viewer).
  */
 import { mountThemeToggle } from "./theme-toggle";
@@ -9,8 +9,10 @@ export type NavRoute =
   | "leaderboard"
   | "tournaments"
   | "replays"
+  | "submissions"
   | "agents"
-  | "agent";
+  | "agent"
+  | "settings";
 
 export function installHeaderNav(root: HTMLElement, active: NavRoute): void {
   const nav = document.createElement("header");
@@ -21,8 +23,10 @@ export function installHeaderNav(root: HTMLElement, active: NavRoute): void {
       <a href="#/" class="nav-link ${active === "quick-match" ? "active" : ""}">Quick Match</a>
       <a href="#/tournaments" class="nav-link ${active === "tournaments" ? "active" : ""}">Tournaments</a>
       <a href="#/replays" class="nav-link ${active === "replays" ? "active" : ""}">Replays</a>
+      <a href="#/submissions" class="nav-link ${active === "submissions" ? "active" : ""}">Submissions</a>
       <a href="#/agents" class="nav-link ${active === "agents" ? "active" : ""}">Agents</a>
       <a href="#/leaderboard" class="nav-link ${active === "leaderboard" ? "active" : ""}">Leaderboard</a>
+      <a href="#/settings" class="nav-link ${active === "settings" ? "active" : ""}">Settings</a>
     </nav>
     <div class="nav-actions"></div>
   `;

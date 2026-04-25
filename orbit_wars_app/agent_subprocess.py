@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -17,6 +18,25 @@ class AgentHandle:
     proc: subprocess.Popen
     stdout_lines: list[str] = field(default_factory=list)
     stderr_lines: list[str] = field(default_factory=list)
+
+
+# Env vars stripped from forked agent subprocesses to keep Kaggle credentials
+# out of reach of third-party agent code. The Settings tab puts the user's
+# access token into `KAGGLE_API_TOKEN` so the SDK can authenticate inside the
+# backend process, but agents (especially `agents/external/*` — code pulled
+# verbatim from competitor notebooks) must not see it: they can otherwise
+# exfiltrate it with one line of `os.environ` + `requests.post`.
+_SENSITIVE_ENV_PREFIXES = ("KAGGLE_",)
+
+
+def _agent_safe_env() -> dict[str, str]:
+    """Return os.environ with Kaggle credentials stripped.
+
+    Agents still inherit PATH, HOME, PYTHONPATH, and friends — those are
+    needed to import the runtime. We only block Kaggle-shaped variables since
+    those are what Settings injects via `kaggle_auth.apply_token_to_env`.
+    """
+    return {k: v for k, v in os.environ.items() if not k.startswith(_SENSITIVE_ENV_PREFIXES)}
 
 
 def _wait_for_port(url: str, deadline: float, interval: float = 0.05) -> None:
@@ -57,6 +77,7 @@ def spawn_agent(
         stderr=subprocess.PIPE,
         text=True,
         bufsize=1,
+        env=_agent_safe_env(),
     )
     deadline = time.monotonic() + startup_timeout
 

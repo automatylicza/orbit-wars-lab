@@ -1,0 +1,56 @@
+# Keep the build context small — everything NOT needed to produce the image.
+
+# Version control + local tooling
+.git/
+.gitignore
+.github/
+.claude/
+.superpowers/
+.vscode/
+.idea/
+
+# Python artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+*.egg-info/
+.venv/
+
+# Node artifacts (viewer-build stage installs fresh inside the image)
+**/node_modules/
+viewer/dist/
+web/core/dist/
+web/core/tsconfig.tsbuildinfo
+
+# Tournament + scraper artifacts (persisted via bind-mount, not baked into image)
+runs/[0-9]*-*/
+runs/trueskill.bak-*.json
+runs/latest
+replays/
+viewer/replays/
+
+# Credentials — belt-and-braces in case something slipped past .gitignore
+.env
+.env.*
+.envrc
+kaggle.json
+.kaggle/
+.kaggle-data/
+
+# Docs + refs — not part of the runtime image
+docs/
+refs/
+
+# OS droppings
+.DS_Store
+*.swp
+
+# Build outputs
+dist/
+build/
+*.tar.gz
+*.zip

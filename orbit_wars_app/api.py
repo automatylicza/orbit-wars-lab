@@ -5,17 +5,23 @@ import asyncio
 import concurrent.futures
 import json
 import os
+import tarfile
+import tempfile
 import threading
 import time
 from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .discovery import scan_zoo
+from . import kaggle_auth
 from . import kaggle_scraper
-from .schemas import AgentInfo, Rating, TournamentConfig
+from . import kaggle_submissions
+from .kaggle_auth import KaggleAuthError
+from .kaggle_submissions import KaggleCliError
+from .schemas import AgentInfo, AgentLogsResponse, KaggleSubmission, Rating, TournamentConfig
 from .tournament import Tournament
 from .trueskill_store import TrueSkillStore
 
@@ -29,6 +35,22 @@ def _zoo_root() -> Path:
 
 def _runs_root() -> Path:
     return Path(os.environ.get("ORBIT_WARS_RUNS_DIR", "runs"))
+
+
+def _safe_subpath(parent: Path, child_name: str) -> Path:
+    """Join `parent / child_name` and ensure the result stays inside `parent`.
+
+    Used for path-parameter endpoints where the URL fragment feeds directly
+    into a filesystem lookup (e.g. `DELETE /runs/{run_id}` → `runs/<run_id>`).
+    Rejects `../` traversal and absolute paths. Raises HTTPException(400)
+    on attempted escape.
+    """
+    joined = parent / child_name
+    try:
+        joined.resolve().relative_to(parent.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid path component")
+    return joined
 
 
 def _replays_root() -> Path:
@@ -240,9 +262,9 @@ def start_scrape(req: ScrapeRequest) -> dict:
 
     Returns {job_id}. Poll GET /replays/scrape/{job_id} for progress.
     """
-    if req.count < 1 or req.count > 200:
+    if req.count < 1 or req.count > 1000:
         raise HTTPException(
-            status_code=400, detail="count must be between 1 and 200"
+            status_code=400, detail="count must be between 1 and 1000"
         )
     if req.submission_id <= 0:
         raise HTTPException(status_code=400, detail="invalid submission_id")
@@ -254,16 +276,9 @@ def start_scrape(req: ScrapeRequest) -> dict:
     replays_root = _replays_root()
     replays_root.mkdir(parents=True, exist_ok=True)
 
-    def _run() -> None:
-        kaggle_scraper.scrape_submission(
-            submission_id=req.submission_id,
-            count=req.count,
-            replays_root=replays_root,
-            job_id=job_id,
-        )
-
-    _executor.submit(_run)
-    # Pre-register job in pending state so immediate progress polls find it
+    # Pre-register job so immediate progress polls find it. Must happen BEFORE
+    # executor.submit, otherwise a fast scrape races us and our sentinel clobbers
+    # its completed state.
     with kaggle_scraper._jobs_lock:
         kaggle_scraper._jobs[job_id] = kaggle_scraper.ScrapeJob(
             job_id=job_id,
@@ -272,6 +287,22 @@ def start_scrape(req: ScrapeRequest) -> dict:
             status="pending",
         )
 
+    def _run() -> None:
+        try:
+            kaggle_scraper.scrape_submission(
+                submission_id=req.submission_id,
+                count=req.count,
+                replays_root=replays_root,
+                job_id=job_id,
+            )
+        except Exception as e:
+            with kaggle_scraper._jobs_lock:
+                j = kaggle_scraper._jobs.get(job_id)
+                if j is not None:
+                    j.status = "failed"
+                    j.error = f"Internal error: {e}"
+
+    _executor.submit(_run)
     return {"job_id": job_id, "status": "pending"}
 
 
@@ -310,9 +341,14 @@ def delete_local_replay(run_id: str, match_id: str) -> dict:
     Only removes the replay file — keeps the tournament's results.json
     intact (match history retained, just replay binary is gone).
     """
-    replays_dir = _runs_root() / run_id / "replays"
+    run_dir = _safe_subpath(_runs_root(), run_id)
+    replays_dir = _safe_subpath(run_dir, "replays")
     if not replays_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Run {run_id!r} not found")
+    # `match_id` feeds the glob pattern below — reject path separators up front
+    # to keep the glob from escaping `replays_dir`.
+    if "/" in match_id or "\\" in match_id or ".." in match_id:
+        raise HTTPException(status_code=400, detail="invalid match id")
     matches = list(replays_dir.glob(f"{match_id}-*.json"))
     if not matches:
         raise HTTPException(
@@ -384,7 +420,7 @@ def delete_run(run_id: str) -> dict:
     """Delete entire tournament run directory (run.json, results.json, replays/)."""
     import shutil
 
-    run_dir = _runs_root() / run_id
+    run_dir = _safe_subpath(_runs_root(), run_id)
     if not run_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Run {run_id!r} not found")
     shutil.rmtree(run_dir)
@@ -417,6 +453,164 @@ def get_replay(run_id: str, match_id: str) -> dict:
     if not matches:
         raise HTTPException(status_code=404, detail=f"Match {match_id!r} not found")
     return json.loads(matches[0].read_text())
+
+
+# ============================================================
+# Kaggle submissions (own LB entries + agent logs)
+# ============================================================
+
+
+@router.get("/kaggle-submissions", response_model=list[KaggleSubmission])
+def list_kaggle_submissions() -> list[KaggleSubmission]:
+    try:
+        return kaggle_submissions.list_my_submissions()
+    except KaggleCliError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+class SubmitAgentRequest(BaseModel):
+    agent_id: str
+    description: str
+
+
+@router.post("/kaggle-submissions")
+def submit_kaggle_agent(req: SubmitAgentRequest) -> dict:
+    """Submit an agent (by bucket/name id) to orbit-wars via the Kaggle API."""
+    if not req.description.strip():
+        raise HTTPException(status_code=400, detail="description is required")
+    agent_dir = _safe_subpath(_zoo_root(), req.agent_id)
+    main_py = agent_dir / "main.py"
+    if not main_py.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No main.py at {main_py} — agent id must be 'bucket/name'",
+        )
+    # Multi-file agents tar up the whole directory (preserving subdirs like
+    # src/ and weights/); single-file uploads main.py alone. Excludes our zoo
+    # metadata (agent.yaml) and transient caches; everything else rides along
+    # so PyTorch checkpoints, config YAMLs, and nested modules all make it.
+    extras = _collect_submission_files(agent_dir)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        if extras:
+            archive = Path(tmpdir) / "submission.tar.gz"
+            with tarfile.open(archive, "w:gz") as tar:
+                tar.add(main_py, arcname="main.py")
+                for path in extras:
+                    tar.add(path, arcname=str(path.relative_to(agent_dir)))
+            upload = archive
+        else:
+            upload = main_py
+        try:
+            return kaggle_submissions.submit_agent(upload, req.description.strip())
+        except KaggleCliError as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+# Files that exist purely for the local zoo (agent.yaml metadata, caches,
+# editor droppings). Everything else in the agent directory is assumed to be
+# runtime-needed and gets tarred into the submission.
+_SUBMISSION_EXCLUDE_NAMES = {"agent.yaml", ".DS_Store"}
+_SUBMISSION_EXCLUDE_SUFFIXES = {".pyc"}
+_SUBMISSION_EXCLUDE_DIR_PARTS = {"__pycache__", ".git", ".pytest_cache", ".venv"}
+
+
+def _collect_submission_files(agent_dir: Path) -> list[Path]:
+    """Return all files to bundle alongside main.py (may include subdirs)."""
+    out: list[Path] = []
+    for p in agent_dir.rglob("*"):
+        if not p.is_file():
+            continue
+        if p.name == "main.py" and p.parent == agent_dir:
+            continue
+        if p.name in _SUBMISSION_EXCLUDE_NAMES:
+            continue
+        if p.suffix in _SUBMISSION_EXCLUDE_SUFFIXES:
+            continue
+        if any(part in _SUBMISSION_EXCLUDE_DIR_PARTS for part in p.relative_to(agent_dir).parts):
+            continue
+        out.append(p)
+    return sorted(out)
+
+
+@router.get(
+    "/kaggle-submissions/{sub_id}/episodes/{ep_id}/logs",
+    response_model=AgentLogsResponse,
+)
+def get_kaggle_agent_logs(sub_id: int, ep_id: int) -> AgentLogsResponse:
+    idx = kaggle_submissions.infer_my_agent_idx(
+        sub_id, ep_id, _replays_root(),
+    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        if idx is not None:
+            try:
+                text = kaggle_submissions.fetch_agent_logs(ep_id, idx, cwd=tmp)
+            except KaggleCliError as e:
+                raise HTTPException(status_code=e.status_code, detail=e.message)
+            return AgentLogsResponse(
+                submission_id=sub_id, episode_id=ep_id, agent_idx=idx, text=text
+            )
+        # Metadata miss — probe every possible slot. 2p games fill 0–1, 4p FFA
+        # fills 0–3; Kaggle returns 403 for slots that aren't us. Stop on the
+        # first 2xx; re-raise non-403 errors.
+        for candidate in range(4):
+            try:
+                text = kaggle_submissions.fetch_agent_logs(ep_id, candidate, cwd=tmp)
+                return AgentLogsResponse(
+                    submission_id=sub_id,
+                    episode_id=ep_id,
+                    agent_idx=candidate,
+                    text=text,
+                )
+            except KaggleCliError as e:
+                if e.status_code == 403:
+                    continue
+                raise HTTPException(status_code=e.status_code, detail=e.message)
+        raise HTTPException(
+            status_code=404,
+            detail="Cannot determine your agent index — scrape replay metadata first",
+        )
+
+
+# ============================================================
+# Kaggle auth (Settings tab — wire up ~/.kaggle/kaggle.json from browser)
+# ============================================================
+
+
+class KaggleAuthStatus(BaseModel):
+    connected: bool
+    username: str | None
+    source: str | None = None            # "file" | "env" | None
+    shadowed: bool | None = None         # set by save when env vars shadow the saved file
+    saved_username: str | None = None    # only when shadowed=True
+    deleted: bool | None = None          # only on DELETE responses
+
+
+class KaggleTokenRequest(BaseModel):
+    # Kaggle tokens are ~80 bytes; 2 KB leaves room for odd formatting
+    # (trailing newlines, BOM, minor whitespace) but caps DoS via giant bodies.
+    token: str = Field(..., max_length=2048)
+
+
+@router.get("/kaggle-auth", response_model=KaggleAuthStatus)
+def get_kaggle_auth_status() -> KaggleAuthStatus:
+    return KaggleAuthStatus(**kaggle_auth.get_status())
+
+
+@router.post("/kaggle-auth", response_model=KaggleAuthStatus)
+def save_kaggle_auth(req: KaggleTokenRequest) -> KaggleAuthStatus:
+    try:
+        return KaggleAuthStatus(**kaggle_auth.save_token(req.token))
+    except KaggleAuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
+
+@router.delete("/kaggle-auth", response_model=KaggleAuthStatus)
+def clear_kaggle_auth() -> KaggleAuthStatus:
+    try:
+        return KaggleAuthStatus(**kaggle_auth.clear_token())
+    except KaggleAuthError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
 
 
 # Single-tournament lock + tracking state

@@ -384,11 +384,19 @@ export function renderer(options: RendererOptions) {
   } else if (isEmbedded) {
     // Publish live match state for the parent sidebar.
     const totalSteps = (replay as any)?.steps?.length ?? 0;
+    // Sidebar winner flag: engine only declares a winner when a UNIQUE player
+    // has a positive score. Ties (max shared) and all-zero end states produce
+    // no winner — previously we marked every tied player with ✓ including
+    // 0-0 dead-dead games.
     const winnerIndices: number[] = [];
     if (isGameOver) {
       const maxScore = Math.max(...playerScores);
-      for (let i = 0; i < numAgents; i++) {
-        if (playerScores[i] === maxScore) winnerIndices.push(i);
+      if (maxScore > 0) {
+        const topIdx: number[] = [];
+        for (let i = 0; i < numAgents; i++) {
+          if (playerScores[i] === maxScore) topIdx.push(i);
+        }
+        if (topIdx.length === 1) winnerIndices.push(topIdx[0]);
       }
     }
     localStorage.setItem('ow-live-match', JSON.stringify({

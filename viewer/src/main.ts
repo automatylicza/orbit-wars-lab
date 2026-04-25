@@ -5,9 +5,11 @@ import { renderTournaments } from "./views/tournaments";
 import { renderTournamentDetail } from "./views/tournament-detail";
 import { renderAgents } from "./views/agents";
 import { renderReplays } from "./views/replays";
+import { renderSubmissions } from "./views/submissions";
 import { renderReplay } from "./views/replay";
 import { renderKaggleReplay } from "./views/kaggle-replay";
 import { renderAgent } from "./views/agent";
+import { renderSettings } from "./views/settings";
 // Kaggle's player base CSS (.player/.viewer/.controls flex layout).
 // NOT auto-bundled because core is a workspace dependency and vite skips
 // side-effect CSS imports from workspace packages in production build.
@@ -41,13 +43,17 @@ function dispatch(route: Route) {
   } else if (route.view === "tournament-detail") {
     renderTournamentDetail(app!, route.runId);
   } else if (route.view === "replays") {
-    renderReplays(app!);
+    renderReplays(app!, route.subFilter);
+  } else if (route.view === "submissions") {
+    renderSubmissions(app!);
   } else if (route.view === "agents") {
     renderAgents(app!);
   } else if (route.view === "replay") {
     renderReplay(app!, route.runId, route.matchId);
   } else if (route.view === "kaggle-replay") {
     renderKaggleReplay(app!, route.submissionId, route.episodeId);
+  } else if (route.view === "settings") {
+    renderSettings(app!);
   } else {
     renderAgent(app!, route.agentId);
   }

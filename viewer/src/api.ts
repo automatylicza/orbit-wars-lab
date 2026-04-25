@@ -37,6 +37,34 @@ export interface RunSummary {
   is_quick_match?: boolean;
 }
 
+export interface KaggleSubmission {
+  submission_id: number;
+  description: string;
+  date: string;
+  status: string;
+  mu: number | null;
+  sigma: number | null;
+  rank: number | null;
+  games_played: number | null;
+}
+
+export interface AgentLogsResponse {
+  submission_id: number;
+  episode_id: number;
+  agent_idx: number;
+  text: string;
+}
+
+export interface ScrapeJob {
+  job_id: string;
+  submission_id: number;
+  count: number;
+  status: "pending" | "running" | "completed" | "failed";
+  total: number;
+  downloaded: number;
+  error: string | null;
+}
+
 export interface MatchResult {
   match_id: string;
   agent_ids: string[];
@@ -111,4 +139,42 @@ export const api = {
     j<{ deleted: boolean }>(`/agents/${agentId}`, { method: "DELETE" }),
   resetRatings: (format: "2p" | "4p" | "all" = "all") =>
     j<{ reset: boolean }>(`/ratings/reset?format=${format}`, { method: "POST" }),
+  listKaggleSubmissions: () =>
+    j<KaggleSubmission[]>(`/kaggle-submissions`),
+  submitKaggleAgent: (agentId: string, description: string) =>
+    j<{ ok: boolean; message: string }>(`/kaggle-submissions`, {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId, description }),
+      headers: { "Content-Type": "application/json" },
+    }),
+  getAgentLogs: (submissionId: number, episodeId: number) =>
+    j<AgentLogsResponse>(
+      `/kaggle-submissions/${submissionId}/episodes/${episodeId}/logs`,
+    ),
+  startScrape: (submissionId: number, count: number) =>
+    j<{ job_id: string; status: string }>(`/replays/scrape`, {
+      method: "POST",
+      body: JSON.stringify({ submission_id: submissionId, count }),
+      headers: { "Content-Type": "application/json" },
+    }),
+  getScrapeStatus: (jobId: string) => j<ScrapeJob>(`/replays/scrape/${jobId}`),
+  getKaggleAuthStatus: () => j<KaggleAuthStatus>(`/kaggle-auth`),
+  saveKaggleAuth: (token: string, signal?: AbortSignal) =>
+    j<KaggleAuthStatus>(`/kaggle-auth`, {
+      method: "POST",
+      body: JSON.stringify({ token }),
+      headers: { "Content-Type": "application/json" },
+      signal,
+    }),
+  clearKaggleAuth: () =>
+    j<KaggleAuthStatus>(`/kaggle-auth`, { method: "DELETE" }),
 };
+
+export interface KaggleAuthStatus {
+  connected: boolean;
+  username: string | null;
+  source: "file" | "env" | null;
+  shadowed?: boolean;
+  saved_username?: string | null;
+  deleted?: boolean;
+}

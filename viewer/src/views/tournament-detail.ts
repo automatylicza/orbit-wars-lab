@@ -6,6 +6,9 @@
 import { api, MatchResult } from "../api";
 import { installHeaderNav } from "../components/header-nav";
 import { navigate } from "../router";
+import { escapeHtml } from "../utils/escape";
+
+let pollInterval: number | null = null;
 
 interface AgentStats {
   agent_id: string;
@@ -111,9 +114,13 @@ export async function renderTournamentDetail(
       if (m.winner === aid) s.wins += 1;
       else if (m.winner === null || m.winner === undefined) s.draws += 1;
       else s.losses += 1;
-      if (m.status && m.status !== "ok") s.crashes += 1;
+      // "crashes" column is for agent malfunctions (crashed / timeout /
+      // invalid_action), NOT for engine-declared draws. `status="draw"` is
+      // a clean match outcome — previously it inflated both this counter
+      // and `failedMatches`, making peaceful games look like failures.
+      if (m.status && m.status !== "ok" && m.status !== "draw") s.crashes += 1;
     }
-    if (m.status && m.status !== "ok") failedMatches += 1;
+    if (m.status && m.status !== "ok" && m.status !== "draw") failedMatches += 1;
     if (m.agent_ids.length === 2) {
       const [a, b] = m.agent_ids;
       if (m.winner === a) {
@@ -193,9 +200,43 @@ export async function renderTournamentDetail(
   body.querySelectorAll<HTMLElement>(".td-match-row").forEach((row) => {
     row.addEventListener("click", () => {
       const matchId = row.dataset.matchId;
-      if (matchId) navigate({ view: "replay", runId, matchId });
+      if (!matchId) return;
+      // Route through Quick Match so the user keeps the sidebar (Match /
+      // Planet / Fleet cards + live score). The bare #/replay/... view is
+      // chromeless and loses that context. Mirrors the replays-list handoff.
+      sessionStorage.setItem(
+        "ow-pending-replay",
+        JSON.stringify({ kind: "local", runId, matchId, ts: Date.now() }),
+      );
+      navigate({ view: "quick-match" });
     });
   });
+
+  // Poll while tournament is live so stats fill in without F5. Self-gc:
+  // clear when the view is unmounted or the run reaches a terminal state.
+  if (pollInterval !== null) window.clearInterval(pollInterval);
+  pollInterval = window.setInterval(async () => {
+    if (!document.getElementById("td-body")) {
+      if (pollInterval !== null) window.clearInterval(pollInterval);
+      pollInterval = null;
+      return;
+    }
+    if (document.hidden) return;
+    try {
+      const fresh = await api.getRunProgress(runId);
+      if (fresh.status !== "running") {
+        if (pollInterval !== null) window.clearInterval(pollInterval);
+        pollInterval = null;
+        // One last full reload to capture final standings.
+        if (run.status === "running") void renderTournamentDetail(root, runId);
+        return;
+      }
+      // Tournament still live — pull full data (standings + matches).
+      void renderTournamentDetail(root, runId);
+    } catch {
+      // Transient network error — try again next tick.
+    }
+  }, 3000);
 }
 
 function renderStandingRow(rank: number, s: AgentStats): string {
@@ -205,7 +246,7 @@ function renderStandingRow(rank: number, s: AgentStats): string {
   return `
     <tr>
       <td>${rank}</td>
-      <td class="agent-id">${s.agent_id}</td>
+      <td class="agent-id">${escapeHtml(s.agent_id)}</td>
       <td>${s.games}</td>
       <td class="td-wins">${s.wins}</td>
       <td class="td-losses">${s.losses}</td>
@@ -241,21 +282,22 @@ function renderH2HMatrix(
         : `background: rgba(255, 138, 138, ${0.1 + (0.5 - winPct) * 0.6})`;
       return `<td class="td-h2h" style="${shade}"><span class="td-h2h-main">${c.wins}–${c.losses}</span>${c.draws > 0 ? `<span class="td-h2h-draw">${c.draws}d</span>` : ""}</td>`;
     });
-    return `<tr><th class="td-h2h-row-head">${short(a)}</th>${cells.join("")}</tr>`;
+    return `<tr><th class="td-h2h-row-head">${escapeHtml(short(a))}</th>${cells.join("")}</tr>`;
   });
-  const header = `<tr><th></th>${agents.map((a) => `<th class="td-h2h-col-head">${short(a)}</th>`).join("")}</tr>`;
+  const header = `<tr><th></th>${agents.map((a) => `<th class="td-h2h-col-head">${escapeHtml(short(a))}</th>`).join("")}</tr>`;
   return `<div class="td-h2h-wrap"><table class="td-h2h-table">${header}${rows.join("")}</table></div>`;
 }
 
 function renderMatchRow(m: MatchResult, _runId: string): string {
-  const winner = m.winner ?? "draw";
+  const winner = m.winner ? escapeHtml(m.winner) : "draw";
+  const safeMatchId = escapeHtml(m.match_id);
   return `
-    <div class="td-match-row" data-match-id="${m.match_id}">
-      <span class="td-match-id">${m.match_id}</span>
-      <span class="td-match-agents">${m.agent_ids.join(" vs ")}</span>
+    <div class="td-match-row" data-match-id="${safeMatchId}">
+      <span class="td-match-id">${safeMatchId}</span>
+      <span class="td-match-agents">${m.agent_ids.map(escapeHtml).join(" vs ")}</span>
       <span class="td-match-winner">${winner}</span>
       <span class="td-match-meta">${m.turns}t · ${(m.duration_s || 0).toFixed(1)}s</span>
-      <span class="td-match-status status-${m.status === "ok" ? "completed" : "aborted"}">${m.status}</span>
+      <span class="td-match-status status-${m.status === "ok" ? "completed" : "aborted"}">${escapeHtml(m.status)}</span>
     </div>
   `;
 }

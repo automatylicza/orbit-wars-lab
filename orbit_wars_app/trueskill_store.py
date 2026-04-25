@@ -69,19 +69,29 @@ class TrueSkillStore:
         agent_ids: list[str],
         winner: Optional[str],
         format: Format,
+        scores: Optional[list[float]] = None,
     ) -> None:
         """Apply TrueSkill update for one match.
 
-        winner: agent_id of sole winner, or None for draw (all rank=0).
-        For n>=3 agents with a winner: winner rank=0, rest rank=1.
+        winner: agent_id of sole winner, or None for draw.
+        scores: per-agent final scores aligned to agent_ids. When provided,
+            ranks are derived from the full score ordering (dense rank, higher
+            score = better) — essential for 4p FFA so 2nd/3rd/4th don't all
+            collapse into a single loser tier. When omitted, falls back to
+            the winner-vs-rest heuristic (fine for 2p).
         """
         # Build current ratings
         ratings = [self._as_trueskill_rating(aid, format) for aid in agent_ids]
 
         # Rank convention: TrueSkill ranks lower = better.
-        # All-drew: ranks = [0, 0, ...]
-        # One winner: winner = 0, rest = 1
-        if winner is None:
+        if scores is not None and len(scores) == len(agent_ids):
+            # Dense rank: highest score → 0, next distinct score → 1, etc.
+            # Equal scores share a rank. Preserves full ordering for 4p FFA.
+            unique_desc = sorted({s for s in scores}, reverse=True)
+            score_to_rank = {s: i for i, s in enumerate(unique_desc)}
+            ranks = [score_to_rank[s] for s in scores]
+        elif winner is None:
+            # No scores, no winner → pure draw.
             ranks = [0] * len(agent_ids)
         else:
             ranks = [0 if aid == winner else 1 for aid in agent_ids]

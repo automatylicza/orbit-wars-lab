@@ -99,6 +99,11 @@ viewer (:6001) with hot-reload. Open <http://localhost:6001>.
     your own agent and want fast relative rating.
 - **Replay library** — combined view of local tournament replays + any
   Kaggle episodes you import (paste a Kaggle URL).
+- **Kaggle integration (optional)** — wire up your own Kaggle API token
+  through the Settings tab to browse your own leaderboard submissions and
+  push new ones directly from the UI. The token stays on your host machine
+  at `~/.kaggle/kaggle.json` (chmod 600); see [Kaggle integration](#kaggle-integration)
+  below for setup.
 
 Everything lives in one Python process (FastAPI backend) serving the Vite
 frontend as static files — no separate node runtime in production.
@@ -143,6 +148,55 @@ persists across container restarts / clones / rebuilds:
 
 Delete `runs/` if you want to wipe ratings + history and start fresh.
 Your agents are untouched.
+
+---
+
+## Kaggle integration
+
+The **Submissions** tab (and its "Submit new agent" flow) needs your own
+Kaggle API token. Without one it shows a banner pointing to Settings —
+the rest of the app (Quick Match, Tournaments, local Leaderboard, Replays)
+works fine without any Kaggle auth.
+
+### Get a token
+
+1. Sign in at [kaggle.com](https://www.kaggle.com) and open
+   [kaggle.com/settings/account](https://www.kaggle.com/settings/account).
+2. Scroll to **API** → click **Create New Token** — this downloads
+   `kaggle.json`.
+3. Accept the [Orbit Wars competition rules](https://www.kaggle.com/competitions/orbit-wars/rules)
+   so the token can list your submissions.
+
+### Save it
+
+**Via the UI (recommended):** open **Settings → Kaggle integration**,
+paste the contents of `kaggle.json`, click **Test & save**. The backend
+validates against Kaggle's API and writes the file to
+`~/.kaggle/kaggle.json` (chmod 600).
+
+**Via env vars (CI-friendly):** set `KAGGLE_USERNAME` and `KAGGLE_KEY`
+before starting the backend. Env vars win over the file at Kaggle SDK
+read time — the Settings tab reflects this with a "via env vars" badge
+and hides write buttons (you can't mutate another process's environment).
+
+### Docker
+
+The token file isn't mounted by default — uncomment one of the
+`.kaggle/` volume lines in `docker-compose.yml` to pick either:
+
+- `~/.kaggle:/home/app/.kaggle` — reuse the token you already have for
+  the `kaggle` CLI on the host
+- `./.kaggle-data:/home/app/.kaggle` — keep a separate per-project token
+  that lives next to the compose file
+
+Without a mount, tokens pasted in Settings vanish on container restart.
+
+### Privacy
+
+The token never leaves your machine except when the app talks to
+`kaggle.com` directly on your behalf (listing submissions, uploading a
+new one). The backend does not echo the token back to the browser —
+status responses only contain the username.
 
 ---
 

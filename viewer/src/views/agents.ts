@@ -6,10 +6,38 @@
 import { api, AgentInfo } from "../api";
 import { installHeaderNav } from "../components/header-nav";
 import { navigate } from "../router";
+import { escapeHtml } from "../utils/escape";
 
 let pollInterval: number | null = null;
 
+// Keys for per-view filter state in sessionStorage. Survives
+// navigation-within-tab (same-tab only, by design — fresh tab = fresh view).
+const FILTER_KEY = "ow-agents-filter";
+type AgentsFilter = {
+  bucket: "all" | "baselines" | "external" | "mine";
+  search: string;
+};
+
+function readFilter(): AgentsFilter {
+  try {
+    const raw = sessionStorage.getItem(FILTER_KEY);
+    if (!raw) return { bucket: "all", search: "" };
+    const p = JSON.parse(raw);
+    return {
+      bucket: (["all", "baselines", "external", "mine"] as const).includes(p.bucket) ? p.bucket : "all",
+      search: typeof p.search === "string" ? p.search : "",
+    };
+  } catch {
+    return { bucket: "all", search: "" };
+  }
+}
+
+function writeFilter(f: AgentsFilter): void {
+  try { sessionStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch { /* quota */ }
+}
+
 export async function renderAgents(root: HTMLElement): Promise<void> {
+  const restored = readFilter();
   root.innerHTML = `
     <main class="dashboard">
       <section>
@@ -32,8 +60,14 @@ export async function renderAgents(root: HTMLElement): Promise<void> {
   `;
   installHeaderNav(root, "agents");
 
-  let bucketFilter: "all" | "baselines" | "external" | "mine" = "all";
-  let searchTerm = "";
+  let bucketFilter: AgentsFilter["bucket"] = restored.bucket;
+  let searchTerm = restored.search;
+
+  // Apply restored filter state to the just-rendered toolbar.
+  root.querySelectorAll<HTMLButtonElement>("[data-bucket]").forEach((b) => {
+    b.classList.toggle("on", b.dataset.bucket === bucketFilter);
+  });
+  (document.getElementById("agents-search") as HTMLInputElement).value = searchTerm;
 
   async function loadList() {
     const listEl = document.getElementById("agents-list")!;
@@ -65,26 +99,27 @@ export async function renderAgents(root: HTMLElement): Promise<void> {
     }
     listEl.innerHTML = filtered
       .map((a) => {
-        const tags = (a.tags || []).slice(0, 4).join(" · ");
-        const desc = a.description ? a.description.slice(0, 160) : "";
+        const tags = (a.tags || []).slice(0, 4).map(escapeHtml).join(" · ");
+        const desc = a.description ? escapeHtml(a.description.slice(0, 160)) : "";
         const errBadge = a.last_error
           ? `<span class="replay-source" style="color: var(--error); background: rgba(255,138,138,0.08);">error</span>`
           : "";
         const disabledBadge = a.disabled
           ? `<span class="replay-source" style="color: var(--warning); background: rgba(255,184,74,0.08);">disabled</span>`
           : "";
+        const safeId = escapeHtml(a.id);
         return `
-          <div class="replay-item" data-id="${a.id}">
+          <div class="replay-item" data-id="${safeId}">
             <div class="replay-meta-row">
-              <span class="replay-source ${a.bucket}">${a.bucket}</span>
+              <span class="replay-source ${escapeHtml(a.bucket)}">${escapeHtml(a.bucket)}</span>
               ${errBadge}${disabledBadge}
-              <span class="replay-title">${a.name}</span>
-              <span class="replay-winner">${a.author ? "by <strong>" + a.author + "</strong>" : ""}</span>
+              <span class="replay-title">${escapeHtml(a.name)}</span>
+              <span class="replay-winner">${a.author ? "by <strong>" + escapeHtml(a.author) + "</strong>" : ""}</span>
             </div>
             <div class="replay-meta-sub">
-              ${a.id}${tags ? " · " + tags : ""}${desc ? " · " + desc : ""}
+              ${safeId}${tags ? " · " + tags : ""}${desc ? " · " + desc : ""}
             </div>
-            <button class="replay-delete" data-id="${a.id}" title="Delete agent">×</button>
+            <button class="replay-delete" data-id="${safeId}" title="Delete agent">×</button>
           </div>
         `;
       })
@@ -101,7 +136,20 @@ export async function renderAgents(root: HTMLElement): Promise<void> {
       btn.addEventListener("click", async (ev) => {
         ev.stopPropagation();
         const id = btn.dataset.id!;
-        if (!confirm(`Delete agent "${id}"?\n\nRemoves the folder from disk. Ratings + replay history kept.`)) return;
+        // Baseline agents seed TrueSkill history + every tournament references
+        // them. Accidentally deleting breaks a bunch of downstream assumptions.
+        // Require typing the id to confirm.
+        if (id.startsWith("baselines/")) {
+          const typed = prompt(
+            `Deleting baseline agent "${id}" is rarely what you want — tournaments that reference it will fail, and the seeded leaderboard loses meaning.\n\nType the agent id to confirm:`,
+          );
+          if (typed !== id) {
+            if (typed !== null) alert("Mismatch — baseline not deleted.");
+            return;
+          }
+        } else if (!confirm(`Delete agent "${id}"?\n\nRemoves the folder from disk. Ratings + replay history kept.`)) {
+          return;
+        }
         try {
           await api.deleteAgent(id);
           await loadList();
@@ -115,6 +163,7 @@ export async function renderAgents(root: HTMLElement): Promise<void> {
   root.querySelectorAll<HTMLButtonElement>("[data-bucket]").forEach((btn) => {
     btn.addEventListener("click", () => {
       bucketFilter = btn.dataset.bucket as typeof bucketFilter;
+      writeFilter({ bucket: bucketFilter, search: searchTerm });
       root.querySelectorAll<HTMLButtonElement>("[data-bucket]").forEach((b) =>
         b.classList.toggle("on", b === btn),
       );
@@ -126,6 +175,7 @@ export async function renderAgents(root: HTMLElement): Promise<void> {
     "input",
     (e) => {
       searchTerm = (e.target as HTMLInputElement).value;
+      writeFilter({ bucket: bucketFilter, search: searchTerm });
       void loadList();
     },
   );
@@ -134,6 +184,12 @@ export async function renderAgents(root: HTMLElement): Promise<void> {
 
   if (pollInterval !== null) window.clearInterval(pollInterval);
   pollInterval = window.setInterval(() => {
+    // Self-gc: clear when view is no longer mounted.
+    if (!document.getElementById("agents-list")) {
+      if (pollInterval !== null) window.clearInterval(pollInterval);
+      pollInterval = null;
+      return;
+    }
     if (document.hidden) return;
     void loadList();
   }, 10000);

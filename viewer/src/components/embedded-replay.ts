@@ -9,6 +9,8 @@
  * - error:    error message
  */
 
+import { escapeHtml } from "../utils/escape";
+
 export interface EmbeddedReplayMatch {
   runId: string;
   matchId: string;
@@ -83,11 +85,11 @@ export function mountEmbeddedReplay(root: HTMLElement): EmbeddedReplayHandle {
       .slice(0, IDLE_LIST_LIMIT)
       .map((r, idx) => {
         if (r.source === "local") {
-          const agents = r.agent_ids.join(" vs ");
-          const winner = r.winner ?? "draw";
+          const agents = r.agent_ids.map(escapeHtml).join(" vs ");
+          const winner = r.winner ? escapeHtml(r.winner) : "draw";
           return `
             <div class="replay-idle-item" data-idx="${idx}" data-kind="local"
-                 data-run-id="${r.run_id}" data-match-id="${r.match_id}">
+                 data-run-id="${escapeHtml(r.run_id)}" data-match-id="${escapeHtml(r.match_id)}">
               <span class="replay-source local">local</span>
               <span class="replay-idle-title">${agents}</span>
               <span class="replay-idle-winner">${winner}</span>
@@ -99,13 +101,13 @@ export function mountEmbeddedReplay(root: HTMLElement): EmbeddedReplayHandle {
             (r.team_names && r.team_names.length > 0
               ? r.team_names
               : (r.agents || []).map((a) => a.name).filter(Boolean) as string[]);
-          const agents = names.length > 0 ? names.join(" vs ") : "?";
+          const agents = names.length > 0 ? names.map(escapeHtml).join(" vs ") : "?";
           return `
             <div class="replay-idle-item" data-idx="${idx}" data-kind="kaggle"
                  data-submission-id="${r.submission_id}" data-episode-id="${r.episode_id}">
               <span class="replay-source kaggle">kaggle</span>
               <span class="replay-idle-title">${agents}</span>
-              <span class="replay-idle-winner">${r.winner ?? ""}</span>
+              <span class="replay-idle-winner">${r.winner ? escapeHtml(r.winner) : ""}</span>
               <span class="replay-idle-meta">ep ${r.episode_id}</span>
             </div>
           `;

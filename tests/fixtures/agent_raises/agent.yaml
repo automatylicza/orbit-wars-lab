@@ -1,0 +1,4 @@
+name: Agent Raises
+description: "Test fixture — raises RuntimeError on every call"
+author: test
+tags: [test]

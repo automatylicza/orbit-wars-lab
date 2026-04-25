@@ -23,20 +23,41 @@ COPY web/ web/
 RUN pnpm --filter @orbit-wars-lab/viewer build
 
 # ==============================================================================
-# Stage 2 — Python runtime (FastAPI + tournament runner).
+# Stage 2 — Python dep builder.
+#
+# Compiles every Python dependency into a wheel, then the runtime stage copies
+# just the wheels + installs them without ever seeing a C compiler. Saves
+# ~300 MB off the final image vs. installing build-essential into runtime.
 # ==============================================================================
-FROM python:3.12-slim
+FROM python:3.12-slim AS py-build
 
-# git for installing kaggle-environments from GitHub master; build-essential
-# for any wheels that need compilation. Cleared after pip install.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /build
+
+COPY requirements.txt ./
+RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+
+# ==============================================================================
+# Stage 3 — Python runtime (FastAPI + tournament runner).
+# ==============================================================================
+FROM python:3.12-slim
+
+# `git` is still needed at runtime ONLY so `pip install -e .` below can parse
+# the kaggle-environments VCS ref embedded in pyproject.toml's `dependencies`.
+# No build-essential — wheels are already built.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
+COPY --from=py-build /wheels /wheels
 COPY requirements.txt pyproject.toml ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+    && rm -rf /wheels
 
 # Application code + zoo + leaderboard seed.
 COPY orbit_wars_app/ orbit_wars_app/

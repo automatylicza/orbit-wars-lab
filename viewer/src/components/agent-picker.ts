@@ -182,7 +182,10 @@ export async function mountAgentPicker(
       return [...slots];
     },
     async refreshRatings() {
-      const fresh = await api.getRatings("2p");
+      // Pull ratings for the CURRENT slot count. 4p picker fetching 2p mu
+      // would show stale / wrong-format numbers after a 4p tournament.
+      const fmt = numSlots >= 4 ? "4p" : "2p";
+      const fresh = await api.getRatings(fmt);
       ratingMap.clear();
       for (const r of fresh) ratingMap.set(r.agent_id, r.mu);
       render();

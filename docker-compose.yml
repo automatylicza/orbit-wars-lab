@@ -21,7 +21,15 @@ services:
     # your local ./agents after the first `docker compose up`. Drop new ones
     # into ./agents/mine/<name>/ and the container picks them up immediately.
     # `runs/` persists tournaments + leaderboard + replays across restarts.
+    # `.kaggle/` is opt-in: uncomment the mount (or map your real ~/.kaggle)
+    # to persist the token saved via Settings across container restarts and
+    # to reuse a token you already configured with the Kaggle CLI on the host.
     volumes:
       - ./agents:/app/agents
       - ./runs:/app/runs
+      # - ~/.kaggle:/home/app/.kaggle            # reuse host's existing token
+      # - ./.kaggle-data:/home/app/.kaggle       # keep a per-project token
+    environment:
+      # Point the Kaggle SDK at the non-root home so `user:` mapping works.
+      HOME: /home/app
     restart: unless-stopped

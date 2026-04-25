@@ -102,3 +102,22 @@ class TournamentConfig(BaseModel):
     # Required when shape="gauntlet". Must be present in agents. The runner
     # pairs the challenger against each remaining agent × games_per_pair.
     challenger_id: Optional[str] = None
+
+
+class KaggleSubmission(BaseModel):
+    """A Kaggle submission as listed by `kaggle competitions submissions`."""
+    submission_id: int
+    description: str
+    date: str  # ISO from CLI output
+    status: str  # PENDING | RUNNING | COMPLETE | FAILED etc.
+    mu: Optional[float] = None
+    sigma: Optional[float] = None
+    rank: Optional[int] = None
+    games_played: Optional[int] = None
+
+
+class AgentLogsResponse(BaseModel):
+    submission_id: int
+    episode_id: int
+    agent_idx: int
+    text: str

@@ -9,8 +9,19 @@ __pycache__/
 node_modules/
 viewer/dist/
 
-# Tournament artifacts (leaderboard snapshot is intentionally tracked as seed)
-runs/2026-*/
+# Credentials (NEVER commit — Settings tab can create ~/.kaggle/kaggle.json
+# and docker-compose.yml offers an opt-in ./.kaggle-data bind mount).
+.env
+.env.*
+!.env.example
+.envrc
+kaggle.json
+.kaggle/
+.kaggle-data/
+
+# Tournament artifacts (leaderboard snapshot is intentionally tracked as seed).
+# YYYY-NNN run dirs — broad glob future-proofs past 2026.
+runs/[0-9]*-*/
 runs/trueskill.bak-*.json
 runs/latest
 

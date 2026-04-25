@@ -19,6 +19,7 @@ import {
   resetPanel,
 } from "../components/sidebar-cards";
 import { api } from "../api";
+import { escapeHtml } from "../utils/escape";
 
 interface MatchStateIdle {
   kind: "idle";
@@ -78,6 +79,10 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
           <details class="qm-acc" data-sec="fleet">
             <summary class="qm-acc-head"><span class="qm-acc-caret">▾</span>Selected fleet</summary>
             <div id="qm-view-fleet" class="qm-view-empty">Click a fleet on the map.</div>
+          </details>
+          <details class="qm-acc" data-sec="logs" id="qm-acc-logs" hidden>
+            <summary class="qm-acc-head"><span class="qm-acc-caret">▾</span><span id="qm-logs-header">Logs</span></summary>
+            <div id="qm-view-logs" class="qm-view-empty">Open to fetch agent stderr.</div>
           </details>
           <details class="qm-acc" data-sec="display" open>
             <summary class="qm-acc-head"><span class="qm-acc-caret">▾</span>Display</summary>
@@ -405,9 +410,9 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
       const isWinner = liveWinner || (matchMeta!.staticWinner === id);
       const score = live.scores?.[i] ?? null;
       return `
-        <div class="qm-view-player${isWinner ? " winner" : ""}" title="${id}">
+        <div class="qm-view-player${isWinner ? " winner" : ""}" title="${escapeHtml(id)}">
           <span class="color-dot" style="background: ${color}"></span>
-          <span class="qm-view-player-name">${shortTrim}</span>
+          <span class="qm-view-player-name">${escapeHtml(shortTrim)}</span>
           ${score !== null ? `<span class="qm-view-player-score">${score}</span>` : ""}
           ${isWinner ? `<span class="qm-view-player-crown">✓</span>` : ""}
         </div>
@@ -420,7 +425,7 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
         : "";
 
     viewMatchEl.innerHTML = `
-      <div class="qm-view-run">${matchMeta.runId}${matchMeta.extra ? ` · ${matchMeta.extra}` : ""}</div>
+      <div class="qm-view-run">${escapeHtml(matchMeta.runId)}${matchMeta.extra ? ` · ${escapeHtml(matchMeta.extra)}` : ""}</div>
       ${stepLine}
       <div class="qm-view-players">${rows.join("")}</div>
     `;
@@ -450,28 +455,81 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
   let pollFailures = 0;
   let activeReplay: EmbeddedReplayHandle = mountEmbeddedReplay(rightPanel);
 
-  // If user came here from /#/replays via sessionStorage handoff, load the
-  // requested replay and switch to View tab. Read + clear in one pass.
-  const pendingRaw = sessionStorage.getItem("ow-pending-replay");
-  if (pendingRaw) {
-    sessionStorage.removeItem("ow-pending-replay");
-    try {
-      const p = JSON.parse(pendingRaw);
-      setSidebarMode("view");
-      if (p.kind === "local" && p.runId && p.matchId) {
-        activeReplay.playLocal(p.runId, p.matchId);
-      } else if (p.kind === "kaggle" && p.submissionId && p.episodeId) {
-        activeReplay.playKaggle(p.submissionId, p.episodeId);
-      }
-    } catch { /* stale json */ }
+  // ===== Logs accordion (visible for Kaggle replays only) =====
+  let currentKaggleCtx: { sub: number; ep: number } | null = null;
+  let logsLoadedKey: string | null = null;
+
+  function setKaggleCtx(ctx: { sub: number; ep: number } | null): void {
+    currentKaggleCtx = ctx;
+    const acc = document.getElementById("qm-acc-logs") as HTMLDetailsElement | null;
+    const body = document.getElementById("qm-view-logs");
+    const header = document.getElementById("qm-logs-header");
+    if (!acc || !body || !header) return;
+    if (!ctx) {
+      acc.hidden = true;
+      acc.open = false;
+      return;
+    }
+    acc.hidden = false;
+    const key = `${ctx.sub}:${ctx.ep}`;
+    if (logsLoadedKey !== key) {
+      acc.open = false;
+      header.textContent = "Logs";
+      body.className = "qm-view-empty";
+      body.textContent = "Open to fetch agent stderr.";
+    }
   }
 
-  // Clicks inside the idle-list of embedded-replay bubble up as a
-  // CustomEvent — switch sidebar to View + populate match info.
-  rightPanel.addEventListener("ow-replay-selected", async (ev: Event) => {
-    const detail = (ev as CustomEvent).detail;
+  (function initLogsAccordion(): void {
+    const acc = document.getElementById("qm-acc-logs") as HTMLDetailsElement | null;
+    const body = document.getElementById("qm-view-logs");
+    const header = document.getElementById("qm-logs-header");
+    if (!acc || !body || !header) return;
+    acc.addEventListener("toggle", async () => {
+      const ctx = currentKaggleCtx;
+      if (!acc.open || !ctx) return;
+      const key = `${ctx.sub}:${ctx.ep}`;
+      if (logsLoadedKey === key) return;
+      body.className = "qm-view-empty";
+      body.textContent = "Loading logs…";
+      try {
+        const res = await api.getAgentLogs(ctx.sub, ctx.ep);
+        header.textContent = `Logs (agent ${res.agent_idx})`;
+        if (res.text) {
+          body.className = "agent-logs";
+          body.textContent = res.text;
+        } else {
+          body.className = "qm-view-empty";
+          body.textContent = "(agent printed nothing to stderr)";
+        }
+        logsLoadedKey = key;
+      } catch (e) {
+        const err = e as Error & { status?: number };
+        body.className = "qm-view-empty";
+        if (err.status === 403) {
+          body.textContent = "Logs only for your own submissions.";
+        } else if (err.status === 404) {
+          body.textContent =
+            "Cannot determine your agent index — import this episode's metadata first (Replays tab).";
+        } else if (err.status === 401) {
+          body.textContent = "Kaggle auth expired — refresh ~/.kaggle/kaggle.json.";
+        } else {
+          body.textContent = `Error: ${err.message}`;
+        }
+      }
+    });
+  })();
+
+  type ReplayHandoff =
+    | { kind: "local"; runId: string; matchId: string }
+    | { kind: "kaggle"; submissionId: number; episodeId: number };
+
+  async function loadReplayAndPopulate(detail: ReplayHandoff): Promise<void> {
+    setSidebarMode("view");
     try {
       if (detail.kind === "local") {
+        setKaggleCtx(null);
+        activeReplay.playLocal(detail.runId, detail.matchId);
         const run = await api.getRun(detail.runId);
         const m = run.results?.matches.find(
           (x: any) => x.match_id === detail.matchId,
@@ -486,11 +544,10 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
           );
         }
       } else {
-        // Kaggle replay: fetch meta from /api/replays to get agent names
-        const r = await fetch(
-          `/api/replays?source=kaggle`,
-        ).then((r) => r.json());
-        const hit = r.find(
+        setKaggleCtx({ sub: detail.submissionId, ep: detail.episodeId });
+        activeReplay.playKaggle(detail.submissionId, detail.episodeId);
+        const list = await fetch(`/api/replays?source=kaggle`).then((r) => r.json());
+        const hit = list.find(
           (x: any) =>
             x.submission_id === detail.submissionId &&
             x.episode_id === detail.episodeId,
@@ -509,7 +566,36 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
     } catch {
       viewMatchEl.innerHTML = `<div class="qm-view-empty">Replay loaded.</div>`;
     }
-    setSidebarMode("view");
+  }
+
+  // If user came here from /#/replays via sessionStorage handoff, load the
+  // requested replay and switch to View tab. Read + clear in one pass.
+  const pendingRaw = sessionStorage.getItem("ow-pending-replay");
+  if (pendingRaw) {
+    sessionStorage.removeItem("ow-pending-replay");
+    try {
+      const p = JSON.parse(pendingRaw);
+      if (p.kind === "local" && p.runId && p.matchId) {
+        void loadReplayAndPopulate({ kind: "local", runId: p.runId, matchId: p.matchId });
+      } else if (p.kind === "kaggle" && p.submissionId && p.episodeId) {
+        void loadReplayAndPopulate({
+          kind: "kaggle",
+          submissionId: p.submissionId,
+          episodeId: p.episodeId,
+        });
+      } else {
+        setKaggleCtx(null);
+      }
+    } catch {
+      setKaggleCtx(null);
+    }
+  } else {
+    setKaggleCtx(null);
+  }
+
+  // Clicks inside the idle-list of embedded-replay bubble up as a CustomEvent.
+  rightPanel.addEventListener("ow-replay-selected", (ev: Event) => {
+    void loadReplayAndPopulate((ev as CustomEvent).detail as ReplayHandoff);
   });
 
   const picker = await mountAgentPicker(
@@ -662,7 +748,13 @@ export async function renderQuickMatch(root: HTMLElement): Promise<void> {
     rightPanel.innerHTML = "";
     activeReplay = mountEmbeddedReplay(rightPanel);
 
-    const seedBase = config.seed === 42 ? 42 : Date.now() % 2 ** 31;
+    // Date.now() % 2**31 has tiny entropy — sequential Play clicks in the
+    // same ms produce identical seeds. crypto.getRandomValues fixes that.
+    // The 42 short-circuit stays for deterministic-seed power-users.
+    const seedBase =
+      config.seed === 42
+        ? 42
+        : (crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff);
     const payload = {
       agents: agentsList,
       games_per_pair: config.games,
