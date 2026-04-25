@@ -3,8 +3,8 @@
 Local tournament runner + visualizer for the
 [Orbit Wars Kaggle competition](https://www.kaggle.com/competitions/orbit-wars).
 
-Ships with 9 agents out-of-the-box (3 baselines + 5 curated rule-based from
-public Kaggle notebooks + 1 PPO RL agent) and a pre-seeded TrueSkill
+Ships with 11 agents out-of-the-box (3 baselines + 7 curated rule-based
+from public Kaggle notebooks + 1 PPO RL agent) and a pre-seeded TrueSkill
 leaderboard. Adds a browser UI on top of the official Kaggle replay player:
 live stats sidebar, click-to-select planets/fleets, multi-selection with
 inbound-fleet ETAs, light/dark mode, and separate tournament formats
@@ -76,20 +76,26 @@ viewer (:6001) with hot-reload. Open <http://localhost:6001>.
 
 ## What you get
 
-- **9 agents ready to play** (see [`agents/`](agents/))
+- **11 agents ready to play** (see [`agents/`](agents/))
   - `baselines/{random,starter,nearest-sniper}` — reference agents shipped
     by Kaggle
-  - `external/pilkwang-structured` — 120 votes, LB claim ~1000, most
+  - `external/pilkwang-structured` — 131 votes, LB claim ~1000, most
     rule-layered reference
   - `external/tamrazov-starwars` — LB claim 1224, simulation-based
   - `external/sigmaborov-{starter,reinforce}` — rule-based with comet/sun
     awareness
   - `external/yuriygreben-architect` — physics-aware multi-phase
+  - `external/ykhnkf-distance-prioritized` — distance-prioritized
+    targeting, LB claim 1100
+  - `external/pascal-orbitwork-v14` — fork-iteration v14
   - `external/kashiwaba-rl` — PPO neural-net policy (2000 updates
     checkpoint)
-- **Pre-seeded TrueSkill leaderboard** (`runs/trueskill.json`) — 360 2p
-  games + 350 4p games already computed, so you can compare new agents
-  immediately against a stable ranking.
+- **Pre-seeded TrueSkill leaderboard** (`runs/trueskill.json`) — local
+  tournament results that accumulate as you play. Reset to empty on
+  2026-04-25 after the Kaggle engine update (Bovard's 4-fold rotational
+  symmetry fix per [discussion #694310](https://www.kaggle.com/competitions/orbit-wars/discussion/694310));
+  re-seed by running a tournament once (Tournaments → round-robin →
+  pick all bundled agents → ~3 min).
 - **Quick Match UI** — pick 2 or 4 agents, play a game, view replay with a
   live-stats sidebar (select any planet/fleet to see ships, production,
   inbound fleets + ETA, destination, speed).
@@ -162,17 +168,20 @@ works fine without any Kaggle auth.
 
 1. Sign in at [kaggle.com](https://www.kaggle.com) and open
    [kaggle.com/settings/account](https://www.kaggle.com/settings/account).
-2. Scroll to **API** → click **Create New Token** — this downloads
-   `kaggle.json`.
+2. Scroll to **API**. Two formats are accepted:
+   - **New format (recommended):** click *"Generate API Token"* — copy the
+     `KGAT_…` string shown on screen.
+   - **Legacy format:** if Kaggle still offers *"Create New Token"*, use
+     that — it downloads a `kaggle.json` file.
 3. Accept the [Orbit Wars competition rules](https://www.kaggle.com/competitions/orbit-wars/rules)
    so the token can list your submissions.
 
 ### Save it
 
 **Via the UI (recommended):** open **Settings → Kaggle integration**,
-paste the contents of `kaggle.json`, click **Test & save**. The backend
-validates against Kaggle's API and writes the file to
-`~/.kaggle/kaggle.json` (chmod 600).
+paste either the bare `KGAT_…` token or the contents of `kaggle.json`,
+click **Test & save**. The backend validates against Kaggle's API and
+writes the resolved credentials to `~/.kaggle/kaggle.json` (chmod 600).
 
 **Via env vars (CI-friendly):** set `KAGGLE_USERNAME` and `KAGGLE_KEY`
 before starting the backend. Env vars win over the file at Kaggle SDK
@@ -197,6 +206,12 @@ The token never leaves your machine except when the app talks to
 `kaggle.com` directly on your behalf (listing submissions, uploading a
 new one). The backend does not echo the token back to the browser —
 status responses only contain the username.
+
+Forked agent subprocesses run with `KAGGLE_*` environment variables
+stripped, so third-party agent code in `agents/external/` cannot read
+your token via `os.environ`. The token still lives on disk at
+`~/.kaggle/kaggle.json` (chmod 600), readable by any process running
+as your user — that is a host-level boundary, not an app-level one.
 
 ---
 

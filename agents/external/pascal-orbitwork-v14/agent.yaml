@@ -1,0 +1,10 @@
+name: Pascal Orbitwork V14
+description: 'TODO: fill after subagent analysis'
+author: pascalledesma
+kernel_slug: pascalledesma/orbitwork-v14
+kernel_version: 1
+date_fetched: '2026-04-25'
+license: Apache 2.0
+tags:
+- external
+disabled: false

@@ -1,0 +1,10 @@
+name: Ykhnkf Distance Prioritized
+description: 'TODO: fill after subagent analysis'
+author: ykhnkf
+kernel_slug: ykhnkf/distance-prioritized-agent-lb-max-score-1100
+kernel_version: 1
+date_fetched: '2026-04-25'
+license: Apache 2.0
+tags:
+- external
+disabled: false

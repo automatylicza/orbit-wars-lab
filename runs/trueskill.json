@@ -1,5 +1,138 @@
 {
   "schema_version": 1,
-  "last_updated": "2026-04-25T00:00:00+00:00",
-  "ratings": {}
+  "last_updated": "2026-04-25T21:58:18.236721+00:00",
+  "ratings": {
+    "baselines/random": {
+      "2p": {
+        "mu": 395.97412977280646,
+        "sigma": 42.08461039972076,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 520.0091553747343,
+        "sigma": 15.944620741139847,
+        "games_played": 120
+      }
+    },
+    "baselines/starter": {
+      "2p": {
+        "mu": 578.9078953632435,
+        "sigma": 40.898088827466616,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 558.1748825221213,
+        "sigma": 16.118013770804424,
+        "games_played": 120
+      }
+    },
+    "baselines/nearest-sniper": {
+      "2p": {
+        "mu": 547.2098259746182,
+        "sigma": 39.041657752026,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 532.1464935553644,
+        "sigma": 15.87616556378035,
+        "games_played": 120
+      }
+    },
+    "external/pilkwang-structured": {
+      "2p": {
+        "mu": 924.7899854339212,
+        "sigma": 40.2991539682099,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 690.9707983845703,
+        "sigma": 18.785643406732202,
+        "games_played": 120
+      }
+    },
+    "external/tamrazov-starwars": {
+      "2p": {
+        "mu": 915.887001742154,
+        "sigma": 39.55447943269627,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 634.8717377630944,
+        "sigma": 17.262694534684016,
+        "games_played": 120
+      }
+    },
+    "external/yuriygreben-architect": {
+      "2p": {
+        "mu": 929.0682788575485,
+        "sigma": 39.864912669673224,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 643.9296328444976,
+        "sigma": 17.473885937023457,
+        "games_played": 120
+      }
+    },
+    "external/sigmaborov-reinforce": {
+      "2p": {
+        "mu": 804.6333834789222,
+        "sigma": 39.502832113903864,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 621.587229604134,
+        "sigma": 17.014673495191918,
+        "games_played": 120
+      }
+    },
+    "external/sigmaborov-starter": {
+      "2p": {
+        "mu": 600.0244014634795,
+        "sigma": 41.95681955596376,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 552.5213559223446,
+        "sigma": 16.034590539846775,
+        "games_played": 120
+      }
+    },
+    "external/kashiwaba-rl": {
+      "2p": {
+        "mu": 222.88011155245567,
+        "sigma": 36.736904438777,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 527.6951974139139,
+        "sigma": 15.86994170950161,
+        "games_played": 120
+      }
+    },
+    "external/ykhnkf-distance-prioritized": {
+      "2p": {
+        "mu": 222.85171637027028,
+        "sigma": 36.02090283693227,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 526.4088518355982,
+        "sigma": 15.891958000266913,
+        "games_played": 120
+      }
+    },
+    "external/pascal-orbitwork-v14": {
+      "2p": {
+        "mu": 227.70180162288975,
+        "sigma": 35.4016369700574,
+        "games_played": 60
+      },
+      "4p": {
+        "mu": 529.2061730684793,
+        "sigma": 15.883197102384887,
+        "games_played": 120
+      }
+    }
+  }
 }

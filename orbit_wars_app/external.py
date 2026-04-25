@@ -29,6 +29,22 @@ import yaml
 KAGGLE_CLI = os.environ.get("KAGGLE_CLI", "kaggle")
 
 
+def _ensure_kaggle_env() -> None:
+    """Bridge KGAT_ tokens from kaggle.json into KAGGLE_API_TOKEN env var.
+
+    The Kaggle CLI 2.x reads new-style access tokens only from the env var,
+    not from the legacy `key` field of kaggle.json (which it tries to send
+    as Basic auth — Kaggle returns 401 for KGAT_ over Basic). subprocess.run
+    inherits os.environ by default, so setting it here lets the CLI succeed.
+    Idempotent and a no-op when env is already set or the file is legacy.
+    """
+    try:
+        from . import kaggle_auth
+        kaggle_auth.apply_token_to_env()
+    except ImportError:
+        pass
+
+
 SUSPICIOUS_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("os.system",      re.compile(r'\bos\.system\b')),
     ("subprocess",     re.compile(r'\bsubprocess\.')),
@@ -267,6 +283,7 @@ def _kaggle_get_notebook_info(kernel_slug: str) -> dict[str, Any]:
     (most common on LB). For an exact value, we'd need `kernels get-metadata`,
     but that's an extra call — leave it for manual verification after fetch.
     """
+    _ensure_kaggle_env()
     try:
         result = subprocess.run(
             [KAGGLE_CLI, "kernels", "status", kernel_slug],
@@ -360,6 +377,7 @@ def fetch_notebook(
         )
 
     # Step 2: pull notebook via kaggle CLI into a temp directory
+    _ensure_kaggle_env()
     with tempfile.TemporaryDirectory(prefix="kaggle-pull-") as tmp:
         tmpdir = Path(tmp)
         result = subprocess.run(
