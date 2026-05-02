@@ -19,8 +19,12 @@ RUN pnpm install --frozen-lockfile
 COPY viewer/ viewer/
 COPY web/ web/
 
-# Build viewer → viewer/dist (served as static by the Python backend).
-RUN pnpm --filter @orbit-wars-lab/viewer build
+# Build all workspace packages → viewer/dist (served as static by the Python
+# backend). Recursive build is needed because the viewer imports
+# @kaggle-environments/core/dist/style.css, and web/core/dist/ is gitignored
+# so a fresh clone has nothing there until web/core builds first. Recursive
+# build resolves the dependency order automatically.
+RUN pnpm -r build
 
 # ==============================================================================
 # Stage 2 — Python dep builder.
